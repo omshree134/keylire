@@ -1,84 +1,101 @@
-# Keyva 🗝️
-> **A local-first logbook that knows what time it is.**
+# Keyva
 
-Keyva is a fast, intelligent, private life logbook built with Flutter. It understands what you did, what you plan to do, and what you need to remember—without ever sending your private logs to the cloud.
-
----
-
-## ✨ Features
-
-- **🕒 3-Tense Architecture**:
-  - `Done`: Real logs of what happened, placed chronologically along the day ribbon.
-  - `Planned` (Ghosts): Tasks scheduled for a specific time or time-of-day window.
-  - `List`: Items to do without a specific time yet; promote them to your day anytime.
-- **🧠 Local-First AI & Smart Matcher**:
-  - On-device vector embeddings and kNN anchor matching for your personal activity keys.
-  - **Learning Mode**: Teaches Keyva your habits, suggests smart new keys, and lets you create custom keys with 1 tap.
-- **🌅 Sleep-Aware & Time-Relevant Key Chips**:
-  - Automatically learns when you usually sleep and wake.
-  - Dynamically positions `Up` (morning) and `Bed` (night) and presents quick key chips tailored to the active time of day (e.g. coffee/breakfast in the morning, lunch in midday, dinner/reading at night).
-- **📸 Smart Photo Understanding**:
-  - On-device OCR and image understanding auto-tags and files photos into relevant activities.
-- **📊 Patterns & Heatmaps**:
-  - Visual streak tracking, 12-week frequency heatmaps, and quantity sparklines.
-- **🔐 Encrypted Local Backups**:
-  - Export and restore your complete database with pass-phrase encrypted single-file `.keyva` archives.
-- **📱 Home Screen Widget**:
-  - Android home screen widget with quick action triggers for voice, camera, and one-tap logging.
+Keyva is a local-first, time-aware personal logbook and life tracker built with Flutter. It provides a chronological timeline interface designed around a three-tense model (Done, Planned, and List), on-device embedding matching, adaptive routine learning, and complete privacy.
 
 ---
 
-## 🚀 Getting Started
+## Core Architecture & Concepts
+
+### 1. Three-Tense Model
+- **Done**: Past activities that have already taken place. Placed chronologically along the timeline ribbon with timestamps, durations, numerical quantities, and notes.
+- **Planned (Ghosts)**: Future activities planned for a specific time or time-of-day window (e.g. morning, after work, evening). Displayed with an open ring indicator on the timeline. Tapping a ghost confirms completion.
+- **List Items**: Intentions and tasks without a specific scheduled time. Kept organized in dedicated sections and promotable to the active day ribbon at any point.
+
+### 2. Time-Ribbon Timeline
+- Continuous vertical chronological ribbon organizing the current day's events.
+- An animated "Now" fold indicator visually separates completed past events from pending planned ghosts.
+- Dynamic 24-hour day boundary resolution accounting for late-night logs and configurable day cutoff hours.
+
+### 3. On-Device Machine Learning & Adaptive Learning Mode
+- **Vector Embeddings & kNN Matching**: Custom activity keys are matched on-device using local text embeddings and cosine similarity against nearest-neighbor anchor examples.
+- **Learning Mode**: Allows users to actively train the system on their personal vocabulary. Suggests intelligent key names extracted from natural descriptions, provides one-tap key creation, and records user confirmations and corrections locally.
+- **Time-of-Day Key Relevance**: Quick-capture key chips are scored and sorted based on the current hour of the day and historical median times for each activity.
+- **Learned Sleep & Wake Schedule**: Learns typical wake and sleep routines, automatically prioritizing the "Up" action in the morning (until logged) and "Bed" in the late evening/night.
+
+### 4. Smart Multimodal Capture
+- **Natural Language Parsing**: Extracts tense, explicit clock times, relative delays (e.g. "in 30 mins"), time windows ("tonight", "this morning"), quantities, units (e.g. km, kcal, pages, reps), durations, and note signals.
+- **Speech-to-Text**: Voice logging with instant on-device recognition.
+- **On-Device Photo Understanding**: Optical character recognition (OCR) and scene extraction for photos, automatically assigning relevant activity keys and descriptions without cloud processing.
+
+### 5. Privacy and Local-First Storage
+- Backed by an on-device SQLite database via Drift.
+- Zero mandatory cloud sync, no accounts, and no analytics or telemetry tracking.
+- Passphrase-encrypted backup and restore generating portable `.keyva` archives.
+
+### 6. Patterns & Analytics
+- 12-week frequency heatmaps per key.
+- Streak counters and planned-vs-done completion metrics.
+- Quantitative series tracking with sparkline graphs (e.g. daily distance, repetitions, calories).
+
+---
+
+## Technical Stack
+
+- **Framework**: Flutter (Dart 3+)
+- **Local Database**: Drift (SQLite) with WAL mode enabled
+- **State Management**: Scoped service architecture and ChangeNotifier controllers
+- **Embeddings**: On-device vector embeddings with kNN similarity scoring
+- **Platform Features**: HomeWidget integration for native Android and iOS widgets
+
+---
+
+## Getting Started
 
 ### Prerequisites
-- [Flutter SDK](https://flutter.dev/docs/get-started/install) (3.22+ recommended)
-- Dart SDK
-- Android Studio / Xcode
+- Flutter SDK (version 3.22 or higher)
+- Android SDK / Xcode
 
-### Setup & Run
+### Setup
 
-```bash
-# Clone the repository
-git clone https://github.com/Zeren1347/Keyva.git
-cd Keyva/keyva
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/omshree134/keyva.git
+   cd keyva/keyva
+   ```
 
-# Install dependencies
-flutter pub get
+2. Install dependencies:
+   ```bash
+   flutter pub get
+   ```
 
-# Generate Drift database models
-dart run build_runner build --delete-conflicting-outputs
+3. Generate database code:
+   ```bash
+   dart run build_runner build --delete-conflicting-outputs
+   ```
 
-# Run tests
-flutter test
+4. Run tests:
+   ```bash
+   flutter test
+   ```
 
-# Launch the app
-flutter run
-```
-
----
-
-## 📂 Project Structure
-
-```
-Keyva/
-├── keyva/
-│   ├── lib/
-│   │   ├── core/         # Parsing, time resolution, day logic
-│   │   ├── data/         # Drift SQLite database, schema, migrations
-│   │   ├── services/     # Capture, matching, embeddings, photo OCR, time vocab
-│   │   ├── ui/           # Today screen, Lists, Patterns, Settings, Widgets
-│   │   └── main.dart     # Application entry point
-│   ├── test/             # Comprehensive unit & widget test suites
-│   ├── android/          # Native Android configuration & Home widget
-│   └── ios/              # Native iOS configuration
-├── .gitignore
-└── README.md
-```
+5. Run the application:
+   ```bash
+   flutter run
+   ```
 
 ---
 
-## 🔒 Privacy & Architecture
+## Repository Structure
 
-Keyva is strictly local-first:
-- All database records (`daylog.sqlite`), embeddings, and OCR run locally on your device.
-- No remote telemetry, no mandatory sign-up, no analytics tracking.
+```
+keyva/
+├── lib/
+│   ├── core/         # Time resolution, day boundary logic, natural language parsing
+│   ├── data/         # Drift SQLite schema, migrations, and database access
+│   ├── services/     # Capture orchestration, matching, embeddings, photo OCR, time vocab
+│   ├── ui/           # Today screen, Lists, Patterns, Settings, Widgets, Design System
+│   └── main.dart     # Application initialization
+├── test/             # Unit and widget test suites
+├── android/          # Native Android configuration and Home Widget provider
+└── ios/              # Native iOS configuration
+```

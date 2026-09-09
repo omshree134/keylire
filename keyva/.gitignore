@@ -13,6 +13,10 @@ Thumbs.db
 .swiftpm/
 migrate_working_dir/
 
+# Internal developer notes
+NOTES.md
+WIDGET_SETUP.md
+
 # IntelliJ / Android Studio / VS Code
 *.iml
 *.ipr
