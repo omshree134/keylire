@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ink on bone — mirrors lib/ui/theme/daylog_theme.dart -->
+    <color name="kv_paper">#F1F1EE</color>
+    <color name="kv_surface">#F7F7F5</color>
+    <color name="kv_elevated">#E9E9E5</color>
+    <color name="kv_ink">#1C1C1E</color>
+    <color name="kv_ink_soft">#5C5C60</color>
+    <color name="kv_ink_faint">#9A9A9E</color>
+    <color name="kv_line">#DCDCD7</color>
+    <color name="kv_night">#4B5B85</color>
+    <color name="kv_dawn">#B98A2E</color>
+    <color name="kv_day">#2E7A85</color>
+    <color name="kv_dusk">#7A4F78</color>
+</resources>

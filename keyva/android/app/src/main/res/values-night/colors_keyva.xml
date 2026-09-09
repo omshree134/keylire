@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="kv_paper">#111214</color>
+    <color name="kv_surface">#17181B</color>
+    <color name="kv_elevated">#212226</color>
+    <color name="kv_ink">#E9E9E4</color>
+    <color name="kv_ink_soft">#9C9C98</color>
+    <color name="kv_ink_faint">#63636A</color>
+    <color name="kv_line">#2A2B30</color>
+    <color name="kv_night">#7C8BB5</color>
+    <color name="kv_dawn">#D4A64A</color>
+    <color name="kv_day">#4FA3AE</color>
+    <color name="kv_dusk">#A67AA3</color>
+</resources>

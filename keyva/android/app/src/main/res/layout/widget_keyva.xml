@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keyva home-screen widget. 4x2. Ink on bone; no shadows, one hairline.
+     Fonts: RemoteViews can't load custom fonts, so this uses the system
+     sans; weights and spacing follow the app. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/bg_widget"
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="12dp">
+
+    <!-- Header: "Today · 6 entries" and the last line -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:id="@+id/header"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textColor="@color/kv_ink_soft"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/last_line"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nothing yet — tap Up"
+                android:textColor="@color/kv_ink"
+                android:textSize="15sp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/now"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="14:32"
+            android:textColor="@color/kv_ink_soft"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:paddingStart="8dp" />
+    </LinearLayout>
+
+    <!-- Chips: Bed · Up | due-now ghost | usual-now keys -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+
+        <TextView android:id="@+id/chip_bed" style="@style/KeyvaChip" android:text="Bed"
+            android:drawableStart="@drawable/dot_night" android:drawablePadding="6dp" />
+        <TextView android:id="@+id/chip_up" style="@style/KeyvaChip" android:text="Up"
+            android:drawableStart="@drawable/dot_dawn" android:drawablePadding="6dp" />
+        <View android:layout_width="1dp" android:layout_height="16dp"
+            android:layout_gravity="center_vertical" android:layout_marginStart="2dp"
+            android:layout_marginEnd="8dp" android:background="@color/kv_line" />
+        <TextView android:id="@+id/chip_0" style="@style/KeyvaChip" android:visibility="gone" />
+        <TextView android:id="@+id/chip_1" style="@style/KeyvaChip" android:visibility="gone" />
+        <TextView android:id="@+id/chip_2" style="@style/KeyvaChip" android:visibility="gone" />
+        <TextView android:id="@+id/chip_3" style="@style/KeyvaChip" android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Capture pill: camera · mic · "Log one line…" -->
+    <LinearLayout
+        android:id="@+id/capture_row"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_capture_line"
+        android:paddingStart="6dp"
+        android:paddingEnd="10dp">
+
+        <ImageView android:id="@+id/btn_camera"
+            android:layout_width="36dp" android:layout_height="36dp"
+            android:padding="8dp" android:src="@drawable/ic_camera"
+            android:tint="@color/kv_ink_soft" android:contentDescription="Attach photo" />
+        <ImageView android:id="@+id/btn_mic"
+            android:layout_width="36dp" android:layout_height="36dp"
+            android:padding="8dp" android:src="@drawable/ic_mic"
+            android:tint="@color/kv_ink_soft" android:contentDescription="Voice log" />
+        <TextView android:id="@+id/btn_text"
+            android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:paddingStart="6dp"
+            android:text="Log one line…"
+            android:textColor="@color/kv_ink_soft"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif" />
+    </LinearLayout>
+</LinearLayout>

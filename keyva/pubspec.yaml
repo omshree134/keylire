@@ -1,0 +1,54 @@
+name: keyva
+description: A logbook that knows what time it is. Local-first, no account.
+publish_to: 'none'
+version: 0.2.0+2
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # storage
+  drift: ^2.20.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # on-device AI
+  onnxruntime: ^1.4.1
+  google_mlkit_image_labeling: ^0.13.0
+  google_mlkit_text_recognition: ^0.14.0
+  speech_to_text: ^7.0.0
+
+  # capture doors
+  image_picker: ^1.1.2
+  permission_handler: ^11.3.1
+  home_widget: ^0.7.0
+
+  # backup
+  cryptography: ^2.7.0
+  file_picker: ^8.1.2
+
+  # ui
+  google_fonts: ^6.2.1
+
+  # optional cloud tier (dormant without a key; kept for v2)
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.12
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/
+    - assets/icon/

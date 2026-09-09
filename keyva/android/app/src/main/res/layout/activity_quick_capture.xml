@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The floating card that opens over the home screen. Same pill, same
+     inks as the in-app capture bar. No title, no tabs, no app. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card"
+    android:paddingStart="16dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="10dp">
+
+    <TextView
+        android:id="@+id/eyebrow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Keyva · now"
+        android:textColor="@color/kv_ink_soft"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="6dp">
+
+        <ImageView android:id="@+id/btn_mic"
+            android:layout_width="40dp" android:layout_height="40dp"
+            android:padding="10dp" android:src="@drawable/ic_mic"
+            android:tint="@color/kv_ink_soft" android:contentDescription="Voice" />
+
+        <EditText
+            android:id="@+id/input"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:hint="One line — what happened, or what's next"
+            android:textColor="@color/kv_ink"
+            android:textColorHint="@color/kv_ink_faint"
+            android:textSize="16sp"
+            android:fontFamily="sans-serif"
+            android:background="@null"
+            android:inputType="textCapSentences|textAutoCorrect"
+            android:imeOptions="actionDone"
+            android:maxLines="3"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp" />
+
+        <ImageView android:id="@+id/btn_send"
+            android:layout_width="34dp" android:layout_height="34dp"
+            android:padding="7dp"
+            android:background="@drawable/bg_send"
+            android:src="@drawable/ic_send"
+            android:contentDescription="Log it" />
+    </LinearLayout>
+
+    <View android:id="@+id/underline"
+        android:layout_width="match_parent"
+        android:layout_height="1.5dp"
+        android:layout_marginStart="40dp"
+        android:layout_marginEnd="44dp"
+        android:background="@color/kv_day" />
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="40dp"
+        android:text=""
+        android:textColor="@color/kv_ink_soft"
+        android:textSize="12sp"
+        android:visibility="gone" />
+</LinearLayout>

@@ -1,0 +1,293 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import 'tables.dart';
+
+part 'database.g.dart'; // dart run build_runner build
+
+@DriftDatabase(tables: [
+  Keys,
+  Events,
+  ListItems,
+  Corrections,
+  KeyExamples,
+  DaySummaries,
+  KeyAnalyses,
+  PeriodSummaries,
+  Recurrences,
+  RecurrenceSuppressions,
+  FutureEntries,
+  Plans,
+  Settings,
+])
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(_open());
+  AppDatabase.forTesting(super.e);
+
+  @override
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+          await _seedSettings();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(keys, keys.usualMinuteOverride);
+            await m.addColumn(keys, keys.notesAffinity);
+            await m.addColumn(keys, keys.notesAdded);
+            await m.addColumn(keys, keys.notesIgnored);
+            await m.addColumn(events, events.status);
+            await m.addColumn(events, events.durationMin);
+            await m.addColumn(events, events.quantity);
+            await m.addColumn(events, events.unit);
+            await m.addColumn(events, events.note);
+            await m.addColumn(events, events.listItemId);
+            await m.createTable(listItems);
+            await m.createTable(corrections);
+            // v1 future_entries become planned events at their hint time
+            // (or 09:00). tz falls back to the device zone name.
+            await customStatement('''
+              INSERT INTO events (key_id, ts_utc, tz, day_date, raw_text, modality,
+                                  key_source, status, created_at)
+              SELECT key_id,
+                     CAST(strftime('%s', entry_date || ' ' ||
+                          COALESCE(time_hint, '09:00') || ':00') AS INTEGER),
+                     'local', entry_date, title, 'text',
+                     CASE WHEN key_id IS NULL THEN 'unfiled' ELSE 'picked' END,
+                     'planned', created_at
+              FROM future_entries
+            ''');
+            await customStatement("DELETE FROM future_entries");
+            await putSetting('schema_version', '2');
+          }
+        },
+        beforeOpen: (details) async {
+          await customStatement('PRAGMA foreign_keys = ON');
+          // The widget's headless isolate writes to this same file.
+          await customStatement('PRAGMA journal_mode = WAL');
+          await customStatement('PRAGMA busy_timeout = 3000');
+        },
+      );
+
+  Future<void> _seedSettings() async {
+    final defaults = <String, String>{
+      'schema_version': '2',
+      'llm_text_enabled': 'false',
+      'photo_cloud_enabled': 'false',
+      'day_cutoff_hour': '4',
+      'sleep_evening_hour': '20',
+      'training_mode_until': '',
+      'auto_assign_threshold': '0.72',
+      'picker_threshold': '0.45',
+      'monthly_budget_usd_cents': '300',
+      'budget_month': '',
+      'budget_spent_usd_microcents': '0',
+      'quiet_days_before_nudge': '3',
+      'notifications_enabled': 'false',
+      'embedder_id': '',
+    };
+    await batch((b) {
+      for (final e in defaults.entries) {
+        b.insert(settings, SettingsCompanion.insert(k: e.key, v: e.value),
+            mode: InsertMode.insertOrIgnore);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------- events
+
+  Future<int> insertEvent(EventsCompanion e) => into(events).insert(e);
+
+  Future<Event?> eventById(int id) =>
+      (select(events)..where((e) => e.id.equals(id))).getSingleOrNull();
+
+  /// Everything on a day that is not deleted, chronological. Includes
+  /// planned/pending/skipped; callers filter by status.
+  Future<List<Event>> eventsForDay(String dayDate) => (select(events)
+        ..where((e) => e.dayDate.equals(dayDate) & e.deletedAt.isNull())
+        ..orderBy([(e) => OrderingTerm.asc(e.tsUtc)]))
+      .get();
+
+  Future<List<Event>> doneEventsForDay(String dayDate) => (select(events)
+        ..where((e) =>
+            e.dayDate.equals(dayDate) &
+            e.deletedAt.isNull() &
+            e.status.equals('done'))
+        ..orderBy([(e) => OrderingTerm.asc(e.tsUtc)]))
+      .get();
+
+  /// Planned events from [fromDay] onwards (for the key bar and lists).
+  Future<List<Event>> plannedFrom(String fromDay) => (select(events)
+        ..where((e) =>
+            e.dayDate.isBiggerOrEqualValue(fromDay) &
+            e.deletedAt.isNull() &
+            e.status.equals('planned'))
+        ..orderBy([(e) => OrderingTerm.asc(e.tsUtc)]))
+      .get();
+
+  Future<List<Event>> pendingEvents() => (select(events)
+        ..where((e) => e.deletedAt.isNull() & e.status.equals('pending'))
+        ..orderBy([(e) => OrderingTerm.asc(e.tsUtc)]))
+      .get();
+
+  Future<List<Event>> unfiledEvents() => (select(events)
+        ..where((e) => e.keyId.isNull() & e.deletedAt.isNull())
+        ..orderBy([(e) => OrderingTerm.desc(e.tsUtc)]))
+      .get();
+
+  Future<void> updateEvent(int id, EventsCompanion patch) =>
+      (update(events)..where((e) => e.id.equals(id)))
+          .write(patch.copyWith(editedAt: Value(DateTime.now().toUtc())));
+
+  Future<void> softDeleteEvent(int id) =>
+      (update(events)..where((e) => e.id.equals(id)))
+          .write(EventsCompanion(deletedAt: Value(DateTime.now().toUtc())));
+
+  Future<void> assignKey(int eventId, int keyId, String keySource,
+          {double? score}) =>
+      updateEvent(
+          eventId,
+          EventsCompanion(
+              keyId: Value(keyId),
+              keySource: Value(keySource),
+              matchScore: Value(score)));
+
+  Future<Event?> latestSleepOnDay(String dayDate, int sleepKeyId) =>
+      (select(events)
+            ..where((e) =>
+                e.dayDate.equals(dayDate) &
+                e.keyId.equals(sleepKeyId) &
+                e.status.equals('done') &
+                e.deletedAt.isNull())
+            ..orderBy([(e) => OrderingTerm.desc(e.tsUtc)])
+            ..limit(1))
+          .getSingleOrNull();
+
+  /// Done events for a key over the last [days] days. Used by the time
+  /// vocabulary ("when is morning for gym?") and by Patterns.
+  Future<List<Event>> recentDoneForKey(int keyId, {int days = 60}) =>
+      (select(events)
+            ..where((e) =>
+                e.keyId.equals(keyId) &
+                e.status.equals('done') &
+                e.deletedAt.isNull() &
+                e.tsUtc.isBiggerOrEqualValue(
+                    DateTime.now().toUtc().subtract(Duration(days: days))))
+            ..orderBy([(e) => OrderingTerm.asc(e.tsUtc)]))
+          .get();
+
+  Future<List<Event>> recentDone({int days = 60}) => (select(events)
+        ..where((e) =>
+            e.status.equals('done') &
+            e.deletedAt.isNull() &
+            e.tsUtc.isBiggerOrEqualValue(
+                DateTime.now().toUtc().subtract(Duration(days: days)))))
+      .get();
+
+  // ------------------------------------------------------------------ keys
+
+  Future<List<Key>> activeKeys() =>
+      (select(keys)..where((k) => k.isArchived.equals(false))).get();
+
+  Future<int> createKey(String name) =>
+      into(keys).insert(KeysCompanion.insert(name: name));
+
+  Future<Key?> keyByName(String name) =>
+      (select(keys)..where((k) => k.name.equals(name))).getSingleOrNull();
+
+  Future<Key?> keyById(int id) =>
+      (select(keys)..where((k) => k.id.equals(id))).getSingleOrNull();
+
+  Future<void> updateKey(int id, KeysCompanion patch) =>
+      (update(keys)..where((k) => k.id.equals(id))).write(patch);
+
+  // ------------------------------------------------------------ list items
+
+  Future<List<ListItem>> openListItems() => (select(listItems)
+        ..where((l) => l.deletedAt.isNull() & l.doneEventId.isNull())
+        ..orderBy([
+          (l) => OrderingTerm.asc(l.section),
+          (l) => OrderingTerm.asc(l.sortOrder),
+          (l) => OrderingTerm.asc(l.createdAt),
+        ]))
+      .get();
+
+  Future<int> insertListItem(ListItemsCompanion row) =>
+      into(listItems).insert(row);
+
+  Future<void> updateListItem(int id, ListItemsCompanion patch) =>
+      (update(listItems)..where((l) => l.id.equals(id))).write(patch);
+
+  // ----------------------------------------------------------- corrections
+
+  Future<int> insertCorrection(CorrectionsCompanion row) =>
+      into(corrections).insert(row);
+
+  Future<List<Correction>> allCorrections() => (select(corrections)
+        ..orderBy([(c) => OrderingTerm.asc(c.createdAt)]))
+      .get();
+
+  // -------------------------------------------------------------- examples
+
+  Future<List<KeyExample>> allExamples() => select(keyExamples).get();
+
+  Future<int> insertExample(KeyExamplesCompanion ex) async {
+    final id = await into(keyExamples).insert(ex);
+    await customUpdate(
+      'UPDATE keys SET example_count = example_count + 1 WHERE id = ?',
+      variables: [Variable.withInt(ex.keyId.value)],
+      updates: {keys},
+    );
+    return id;
+  }
+
+  // ------------------------------------------------------------- summaries
+
+  Future<void> upsertDaySummary(DaySummariesCompanion row) =>
+      into(daySummaries).insertOnConflictUpdate(row);
+
+  Future<DaySummary?> daySummary(String dayDate) => (select(daySummaries)
+        ..where((d) => d.dayDate.equals(dayDate)))
+      .getSingleOrNull();
+
+  Future<void> upsertKeyAnalysis(KeyAnalysesCompanion row) =>
+      into(keyAnalyses).insertOnConflictUpdate(row);
+
+  Future<List<KeyAnalyse>> analysesForKeys(List<int> keyIds) =>
+      (select(keyAnalyses)..where((a) => a.keyId.isIn(keyIds))).get();
+
+  // ---------------------------------------------------------------- future
+
+  Future<List<FutureEntry>> futureForDate(String date) =>
+      (select(futureEntries)..where((f) => f.entryDate.equals(date))).get();
+
+  Future<int> insertFutureEntry(FutureEntriesCompanion row) =>
+      into(futureEntries).insert(row);
+
+  // -------------------------------------------------------------- settings
+
+  Future<String?> setting(String key) async {
+    final row =
+        await (select(settings)..where((s) => s.k.equals(key))).getSingleOrNull();
+    return row?.v;
+  }
+
+  Future<void> putSetting(String key, String value) =>
+      into(settings).insertOnConflictUpdate(
+          SettingsCompanion(k: Value(key), v: Value(value)));
+}
+
+LazyDatabase _open() {
+  return LazyDatabase(() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dir.path, 'daylog.sqlite'));
+    return NativeDatabase.createInBackground(file);
+  });
+}

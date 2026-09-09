@@ -1,0 +1,14 @@
+{
+  "tense": 1.0,
+  "day": 1.0,
+  "weekday": 1.0,
+  "hour": 1.0,
+  "minute": 1.0,
+  "window": 1.0,
+  "qty": 1.0,
+  "unit": 1.0,
+  "dur": 1.0,
+  "note": 1.0,
+  "match": 1.0,
+  "rel": 1.0
+}

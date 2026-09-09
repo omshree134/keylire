@@ -1,0 +1,78 @@
+{"in":"gym","tense":"done","day":0,"match":"gym"}
+{"in":"gym 45 min","tense":"done","dur":45,"match":"gym"}
+{"in":"went to the gym for an hour","tense":"done","dur":60,"match":"gym"}
+{"in":"leg day","tense":"done","match":"leg day"}
+{"in":"ran 5k","tense":"done","qty":5,"unit":"km","match":"ran"}
+{"in":"ran 5 km this morning","tense":"done","window":"morning","qty":5,"unit":"km"}
+{"in":"walked 8000 steps","tense":"done","qty":8000,"unit":"steps"}
+{"in":"read 30 pages","tense":"done","qty":30,"unit":"pages","match":"read"}
+{"in":"read 30 pages of dune before bed","tense":"done","window":"before bed","qty":30,"unit":"pages"}
+{"in":"drank 2l water","tense":"done","qty":2,"unit":"l"}
+{"in":"2 cups of chai","tense":"done","qty":2,"unit":"cups","match":"chai"}
+{"in":"lunch ~520 kcal","tense":"done","qty":520,"unit":"kcal"}
+{"in":"spent 450 rs on groceries","tense":"done","qty":450,"unit":"₹"}
+{"in":"woke up at 7","tense":"done","hour":7,"minute":0}
+{"in":"woke up at 7:30 am","tense":"done","hour":7,"minute":30}
+{"in":"up at 6","tense":"done","hour":6}
+{"in":"slept at 11","tense":"done","hour":23}
+{"in":"went to bed at 12:30","tense":"done","hour":0,"minute":30}
+{"in":"dinner at 8","tense":"planned","hour":20}
+{"in":"dinner at 8 pm","tense":"planned","hour":20}
+{"in":"had lunch at 1:15 pm","tense":"done","hour":13,"minute":15}
+{"in":"team meeting at 14:30","tense":"done","hour":14,"minute":30,"note":true}
+{"in":"gym at 5","tense":"planned","hour":17}
+{"in":"gym at 5 tomorrow","tense":"planned","day":1,"hour":17,"match":"gym"}
+{"in":"gym tomorrow","tense":"planned","day":1,"match":"gym"}
+{"in":"gym tomorrow morning","tense":"planned","day":1,"window":"morning","match":"gym"}
+{"in":"will feed the dog tomorrow morning","tense":"planned","day":1,"window":"morning","match":"feed dog"}
+{"in":"feed the dog tomorrow morning","tense":"planned","day":1,"window":"morning"}
+{"in":"call mom tonight","tense":"planned","day":0,"window":"night","match":"call mom","note":true}
+{"in":"call mom at 8 tonight","tense":"planned","day":0,"hour":20,"match":"call mom"}
+{"in":"will do laundry this evening","tense":"planned","day":0,"window":"evening","match":"laundry"}
+{"in":"laundry this evening","tense":"planned","day":0,"window":"evening"}
+{"in":"dentist on friday at 10 am","tense":"planned","weekday":5,"hour":10}
+{"in":"dentist friday 10am","tense":"planned","weekday":5,"hour":10}
+{"in":"gym next monday","tense":"planned","weekday":1}
+{"in":"meeting with dave at 3 pm about the roadmap","tense":"planned","hour":15,"note":true}
+{"in":"standup in 20 min","tense":"planned","rel":20}
+{"in":"leave in 2 hours","tense":"planned","rel":120}
+{"in":"need to buy a lamp","tense":"list","match":"buy lamp"}
+{"in":"have to book the dentist","tense":"list","match":"book dentist"}
+{"in":"todo renew passport","tense":"list","match":"renew passport"}
+{"in":"remind me to water the plants","tense":"list","match":"water plants"}
+{"in":"want to learn biryani someday","tense":"list"}
+{"in":"gotta fix the tap","tense":"list","match":"fix tap"}
+{"in":"gym yesterday","tense":"done","day":-1,"match":"gym"}
+{"in":"forgot to log: had dinner yesterday at 9","tense":"done","day":-1,"hour":21}
+{"in":"just finished a 40 min run","tense":"done","dur":40,"match":"run"}
+{"in":"did 3 sets of pushups","tense":"done","qty":3,"unit":"sets"}
+{"in":"biryani for dinner","tense":"done","match":"biryani dinner"}
+{"in":"chai","tense":"done","match":"chai"}
+{"in":"kal subah gym","tense":"planned","day":1,"window":"morning","match":"gym"}
+{"in":"shaam ko walk","tense":"planned","day":0,"window":"evening","match":"walk"}
+{"in":"raat ko padhai","tense":"planned","day":0,"window":"night","match":"padhai"}
+{"in":"8 baje dinner","tense":"planned","hour":20}
+{"in":"gym at 6 baje","tense":"planned","hour":18}
+{"in":"movie night with friends","tense":"done","window":"night","note":true}
+{"in":"evening walk 30 min","tense":"done","window":"evening","dur":30,"match":"walk"}
+{"in":"breakfast at 8 am","tense":"done","hour":8}
+{"in":"coffee at noon","tense":"done","hour":12}
+{"in":"nap in the afternoon","tense":"done","window":"afternoon","match":"nap"}
+{"in":"i'll call the bank after work","tense":"planned","day":0,"window":"after work","match":"call bank"}
+{"in":"pay rent on the 1st","tense":"done","match":"pay rent"}
+{"in":"studied physics 2 hours","tense":"done","dur":120,"match":"studied physics"}
+{"in":"swam 20 laps","tense":"done","qty":20,"unit":"laps"}
+{"in":"watched 3 episodes","tense":"done","qty":3,"unit":"episodes"}
+{"in":"wrote 800 words","tense":"done","qty":800,"unit":"words"}
+{"in":"cycling 12 km 40 min","tense":"done","qty":12,"unit":"km","dur":40}
+{"in":"doctor at 11 tomorrow","tense":"planned","day":1,"hour":11}
+{"in":"gym day after tomorrow","tense":"planned","day":2,"match":"gym"}
+{"in":"meeting at 4","tense":"planned","hour":16,"note":true}
+{"in":"met priya about the flat","tense":"done","note":true}
+{"in":"idea: log widget should show streak","tense":"done"}
+{"in":"bed","tense":"done","match":"bed"}
+{"in":"up","tense":"done","match":"up"}
+{"in":"had dinner at 8","tense":"done","hour":20}
+{"in":"gym at 5 today done","tense":"done","hour":17}
+{"in":"walked 3 km in the evening","tense":"done","window":"evening","qty":3,"unit":"km"}
+{"in":"read at night","tense":"done","window":"night","match":"read"}
