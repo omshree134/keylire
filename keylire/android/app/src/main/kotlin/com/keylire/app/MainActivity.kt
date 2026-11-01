@@ -13,14 +13,14 @@ import com.google.mlkit.genai.imagedescription.ImageDescriber
 import com.google.mlkit.genai.imagedescription.ImageDescriberOptions
 import com.google.mlkit.genai.imagedescription.ImageDescription
 import com.google.mlkit.genai.imagedescription.ImageDescriptionRequest
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private var imageDescriber: ImageDescriber? = null
     private var backupChannel: MethodChannel? = null
     private val backupIo = Executors.newSingleThreadExecutor()

@@ -32,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   PhotoModelStatus _photoModelStatus = PhotoModelStatus.unsupported;
   bool _photoModelBusy = false;
   bool _hasPasscode = false;
+  bool _biometric = false;
   bool _cloudAvailable = false;
   Tier _tier = Tier.free;
   final Map<CloudFeature, bool> _features = {};
@@ -50,6 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final photoStatus =
         await s.photos.captioner?.status() ?? PhotoModelStatus.unsupported;
     final hasPin = await s.settings.hasPasscode();
+    final bio = await s.settings.biometricEnabled();
     final gate = s.cloudGate;
     final avail = gate == null ? false : await gate.anyProviderAvailable;
     final tier = await s.entitlements?.tier() ?? Tier.free;
@@ -63,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _training = t;
         _photoModelStatus = photoStatus;
         _hasPasscode = hasPin;
+        _biometric = bio;
         _cloudAvailable = avail;
         _tier = tier;
         _features
@@ -716,6 +719,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ? '4-digit PIN is required to open Keylire. Tap to change or remove.'
               : 'Lock your personal logbook with a 4-digit PIN.',
         ),
+        if (_hasPasscode)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Unlock with fingerprint or face'),
+            subtitle: const Text('PIN still works as a fallback.'),
+            value: _biometric,
+            onChanged: (v) async {
+              await s.settings.setBiometricEnabled(v);
+              _load();
+            },
+          ),
         _tile(Icons.hide_image_outlined, 'Delete all photos', _deleteAllPhotos),
         SizedBox(height: dl.x6),
         Text('Backup & Data Portability', style: theme.textTheme.titleSmall),

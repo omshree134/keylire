@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:home_widget/home_widget.dart';
 
 import 'controllers/app_state.dart';
+import '../services/auth/biometric_service.dart';
 import '../services/backup/backup_file_bridge.dart';
 import 'screens/how_to_use_screen.dart';
 import 'screens/lists_screen.dart';
@@ -77,6 +78,9 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _checkLock(relock: true);
+    }
+    if (state == AppLifecycleState.resumed) {
+      widget.services.entitlements?.refresh();
     }
   }
 
@@ -318,6 +322,22 @@ class _PasscodeLockScreen extends StatefulWidget {
 class _PasscodeLockScreenState extends State<_PasscodeLockScreen> {
   String _pin = '';
   String? _error;
+  final _bio = BiometricService();
+  bool _bioAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryBiometric());
+  }
+
+  Future<void> _tryBiometric() async {
+    if (!await widget.services.settings.biometricEnabled()) return;
+    final ok = await _bio.available;
+    if (!mounted) return;
+    setState(() => _bioAvailable = ok);
+    if (ok && await _bio.unlock() && mounted) widget.onUnlocked();
+  }
 
   void _digit(String d) async {
     if (_pin.length >= 4) return;
@@ -421,7 +441,17 @@ class _PasscodeLockScreenState extends State<_PasscodeLockScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const SizedBox(width: 72, height: 72),
+                    SizedBox(
+                      width: 72,
+                      height: 72,
+                      child: _bioAvailable
+                          ? IconButton(
+                              icon: const Icon(Icons.fingerprint, size: 28),
+                              tooltip: 'Use biometrics',
+                              onPressed: _tryBiometric,
+                            )
+                          : null,
+                    ),
                     _pinKey('0', theme),
                     SizedBox(
                       width: 72,

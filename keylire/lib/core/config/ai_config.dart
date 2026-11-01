@@ -26,4 +26,9 @@ class AiConfig {
   /// re-embedded from their raw text at startup.
   static const String onnxEmbedderId = 'minilm-l6-v2-int8-384';
   static const String hashingEmbedderId = 'hashing-dev-384';
+
+  /// RevenueCat public SDK keys. Empty = use LocalEntitlements (dev override).
+  static const String revenueCatAndroidKey = '';
+  static const String revenueCatIosKey = '';
+  static const String premiumEntitlementId = 'premium';
 }

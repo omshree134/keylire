@@ -40,6 +40,10 @@ dependencies:
 
   # optional cloud tier (dormant without a key; kept for v2)
   http: ^1.2.2
+  purchases_flutter: ^8.0.0
+
+  # authentication
+  local_auth: ^2.3.0
 
 dev_dependencies:
   flutter_test:

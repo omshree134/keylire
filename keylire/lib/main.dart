@@ -15,8 +15,10 @@ import 'services/cloud/cloud_capture_service.dart';
 import 'services/cloud/cloud_gate.dart';
 import 'services/cloud/hosted_provider.dart';
 import 'services/embeddings/embedding_service.dart';
+import 'services/embeddings/isolate_embedding_service.dart';
 import 'services/embeddings/switchable_embedding_service.dart';
 import 'services/entitlements/entitlements_service.dart';
+import 'services/entitlements/revenuecat_entitlements.dart';
 import 'services/matching/key_matcher.dart';
 import 'services/metrics/dogfood_metrics.dart';
 import 'services/photos/photo_understanding_service.dart';
@@ -51,7 +53,12 @@ void main() {
   final vocab = TimeVocabService(db);
   final capture = CaptureService(db, matcher, settings, vocab);
   final recurrence = RecurrenceEngine(db);
-  final entitlements = LocalEntitlements(db);
+  final EntitlementsService entitlements =
+      AiConfig.revenueCatAndroidKey.isEmpty && AiConfig.revenueCatIosKey.isEmpty
+          ? LocalEntitlements(db)
+          : RevenueCatEntitlements(db,
+              tokenEndpoint: '${AiConfig.hostedBaseUrl}/v1/token',
+              entitlementId: AiConfig.premiumEntitlementId);
   final cloudGate = CloudGate(
     settings: settings,
     hosted: HostedProvider(entitlements, baseUrl: AiConfig.hostedBaseUrl),
@@ -83,8 +90,13 @@ void main() {
 
   Future.microtask(() async {
     await settings.migrateLegacyCloudSettings();
+    if (entitlements is RevenueCatEntitlements) {
+      await entitlements.configure(
+          androidKey: AiConfig.revenueCatAndroidKey,
+          iosKey: AiConfig.revenueCatIosKey);
+    }
     final upgraded = await embedder.upgradeTo(
-        OnnxEmbeddingService(), AiConfig.onnxEmbedderId);
+        IsolateEmbeddingService(), AiConfig.onnxEmbedderId);
     if (!upgraded) {
       debugPrint(
           'Keylire: ONNX model missing - matcher is running the dev hashing embedder.');

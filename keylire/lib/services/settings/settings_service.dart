@@ -197,6 +197,11 @@ class SettingsService {
         hashObj.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return hashHex == expectedHash;
   }
+
+  Future<bool> biometricEnabled() async =>
+      (await db.setting('biometric_unlock')) == 'true';
+  Future<void> setBiometricEnabled(bool v) =>
+      db.putSetting('biometric_unlock', '$v');
 }
 
 extension on String {

@@ -45,6 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock Keylire with Face ID.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Keylire needs access to the microphone for voice logging.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

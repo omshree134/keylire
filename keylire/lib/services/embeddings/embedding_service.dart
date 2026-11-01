@@ -55,56 +55,59 @@ class OnnxEmbeddingService implements EmbeddingService {
     if (session == null) {
       throw StateError('OnnxEmbeddingService.init() not called');
     }
-    final ids = _tokenizer.encode(text, maxTokens: maxTokens);
-    final n = ids.length;
-    final inputIds = OrtValueTensor.createTensorWithDataList(
-        [Int64List.fromList(ids)], [1, n]);
-    final mask = OrtValueTensor.createTensorWithDataList(
-        [Int64List.fromList(List.filled(n, 1))], [1, n]);
-    final types = OrtValueTensor.createTensorWithDataList(
-        [Int64List.fromList(List.filled(n, 0))], [1, n]);
-
-    final outputs = session.run(OrtRunOptions(), {
-      'input_ids': inputIds,
-      'attention_mask': mask,
-      'token_type_ids': types,
-    });
-    try {
-      // last_hidden_state: [1, n, dim] -> mean-pool -> L2 normalise
-      final hidden = (outputs.first!.value as List)[0] as List;
-      final pooled = Float32List(dim);
-      for (var t = 0; t < n; t++) {
-        final row = hidden[t] as List;
-        for (var d = 0; d < dim; d++) {
-          pooled[d] += (row[d] as num).toDouble();
-        }
-      }
-      var norm = 0.0;
-      for (var d = 0; d < dim; d++) {
-        pooled[d] /= n;
-        norm += pooled[d] * pooled[d];
-      }
-      norm = math.sqrt(norm);
-      if (norm > 0) {
-        for (var d = 0; d < dim; d++) {
-          pooled[d] /= norm;
-        }
-      }
-      return pooled;
-    } finally {
-      for (final o in outputs) {
-        o?.release();
-      }
-      inputIds.release();
-      mask.release();
-      types.release();
-    }
+    return runMiniLm(session, _tokenizer, text, maxTokens: maxTokens, dim: dim);
   }
 
   @override
   void dispose() {
     _session?.release();
     OrtEnv.instance.release();
+  }
+}
+
+/// Synchronous MiniLM forward pass + mean pool + L2 normalise.
+/// Shared by the main-isolate service and the worker isolate.
+Float32List runMiniLm(OrtSession session, WordPieceTokenizer tokenizer, String text,
+    {int maxTokens = 64, int dim = 384}) {
+  final ids = tokenizer.encode(text, maxTokens: maxTokens);
+  final n = ids.length;
+  final inputIds = OrtValueTensor.createTensorWithDataList([Int64List.fromList(ids)], [1, n]);
+  final mask = OrtValueTensor.createTensorWithDataList([Int64List.fromList(List.filled(n, 1))], [1, n]);
+  final types = OrtValueTensor.createTensorWithDataList([Int64List.fromList(List.filled(n, 0))], [1, n]);
+
+  final outputs = session.run(OrtRunOptions(), {
+    'input_ids': inputIds,
+    'attention_mask': mask,
+    'token_type_ids': types,
+  });
+  try {
+    final hidden = (outputs.first!.value as List)[0] as List;
+    final pooled = Float32List(dim);
+    for (var t = 0; t < n; t++) {
+      final row = hidden[t] as List;
+      for (var d = 0; d < dim; d++) {
+        pooled[d] += (row[d] as num).toDouble();
+      }
+    }
+    var norm = 0.0;
+    for (var d = 0; d < dim; d++) {
+      pooled[d] /= n;
+      norm += pooled[d] * pooled[d];
+    }
+    norm = math.sqrt(norm);
+    if (norm > 0) {
+      for (var d = 0; d < dim; d++) {
+        pooled[d] /= norm;
+      }
+    }
+    return pooled;
+  } finally {
+    for (final o in outputs) {
+      o?.release();
+    }
+    inputIds.release();
+    mask.release();
+    types.release();
   }
 }
 
