@@ -94,6 +94,11 @@ void main() {
       final recentResults =
           await db.searchEvents(fromDate: '2026-10-01', toDate: '2026-10-31');
       expect(recentResults.length, 2);
+
+      // 6. Prefix query matching (FTS5 "tri"* matches "triceps")
+      final prefixResults = await db.searchEvents(query: 'tri');
+      expect(prefixResults.length, 1);
+      expect(prefixResults.first.rawText, contains('triceps'));
     });
 
     test(

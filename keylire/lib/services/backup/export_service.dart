@@ -268,6 +268,7 @@ class ExportService {
     } finally {
       await db.customStatement('PRAGMA foreign_keys = ON');
     }
+    await db.rebuildSearchIndex();
   }
 
   Future<Map<String, dynamic>> _dumpAll() async {

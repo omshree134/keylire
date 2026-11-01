@@ -105,10 +105,23 @@ class _SearchScreenState extends State<SearchScreen> {
           DateTime.now().subtract(const Duration(days: 90)));
     }
 
+    // Typing a key's name is a key filter, not a text search.
+    int? effectiveKey = _selectedKeyId;
+    String? effectiveQuery = query.isEmpty ? null : query;
+    if (effectiveKey == null && query.isNotEmpty) {
+      final hit = _availableKeys
+          .where((k) => k.name.toLowerCase() == query.toLowerCase())
+          .firstOrNull;
+      if (hit != null) {
+        effectiveKey = hit.id;
+        effectiveQuery = null;
+      }
+    }
+
     try {
       final rows = await services.db.searchEvents(
-        query: query.isEmpty ? null : query,
-        keyId: _selectedKeyId,
+        query: effectiveQuery,
+        keyId: effectiveKey,
         fromDate: fromDate,
         limit: 150,
       );

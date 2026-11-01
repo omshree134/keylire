@@ -29,13 +29,17 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
+
+  /// False if this SQLite build has no FTS5; searchEvents then uses LIKE.
+  bool ftsAvailable = false;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await _seedSettings();
+          await _ensureFts();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -67,18 +71,27 @@ class AppDatabase extends _$AppDatabase {
             await customStatement("DELETE FROM future_entries");
             await putSetting('schema_version', '2');
           }
+          if (from < 3) {
+            await _ensureFts();
+            await putSetting('schema_version', '3');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
           // The widget's headless isolate writes to this same file.
           await customStatement('PRAGMA journal_mode = WAL');
           await customStatement('PRAGMA busy_timeout = 3000');
+          // Existing DBs that already migrated still need the flag set.
+          if (!details.wasCreated &&
+              details.versionBefore == details.versionNow) {
+            await _probeFts();
+          }
         },
       );
 
   Future<void> _seedSettings() async {
     final defaults = <String, String>{
-      'schema_version': '2',
+      'schema_version': '3',
       'llm_text_enabled': 'false',
       'photo_cloud_enabled': 'false',
       'day_cutoff_hour': '4',
@@ -192,6 +205,70 @@ class AppDatabase extends _$AppDatabase {
                 DateTime.now().toUtc().subtract(Duration(days: days)))))
       .get();
 
+  // ------------------------------------------------------------------ fts
+
+  /// External-content FTS5 over events(raw_text, note), kept in sync by
+  /// triggers. Rebuilt once after creation so existing rows are indexed.
+  Future<void> _ensureFts() async {
+    try {
+      await customStatement('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(
+          raw_text, note,
+          content='events', content_rowid='id',
+          tokenize='unicode61 remove_diacritics 2'
+        )''');
+      await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS events_fts_ai AFTER INSERT ON events BEGIN
+          INSERT INTO events_fts(rowid, raw_text, note)
+          VALUES (new.id, new.raw_text, new.note);
+        END''');
+      await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS events_fts_ad AFTER DELETE ON events BEGIN
+          INSERT INTO events_fts(events_fts, rowid, raw_text, note)
+          VALUES ('delete', old.id, old.raw_text, old.note);
+        END''');
+      await customStatement('''
+        CREATE TRIGGER IF NOT EXISTS events_fts_au AFTER UPDATE ON events BEGIN
+          INSERT INTO events_fts(events_fts, rowid, raw_text, note)
+          VALUES ('delete', old.id, old.raw_text, old.note);
+          INSERT INTO events_fts(rowid, raw_text, note)
+          VALUES (new.id, new.raw_text, new.note);
+        END''');
+      await customStatement("INSERT INTO events_fts(events_fts) VALUES ('rebuild')");
+      ftsAvailable = true;
+    } catch (_) {
+      ftsAvailable = false; // no FTS5 in this build; LIKE fallback stays
+    }
+  }
+
+  Future<void> _probeFts() async {
+    try {
+      await customSelect('SELECT count(*) FROM events_fts').getSingle();
+      ftsAvailable = true;
+    } catch (_) {
+      ftsAvailable = false;
+    }
+  }
+
+  /// Call after bulk operations that bypass triggers' assumptions (restore).
+  Future<void> rebuildSearchIndex() async {
+    if (!ftsAvailable) return;
+    try {
+      await customStatement("INSERT INTO events_fts(events_fts) VALUES ('rebuild')");
+    } catch (_) {}
+  }
+
+  /// "dent fri" -> '"dent"* "fri"*' : every term is a prefix, all must match.
+  static String _ftsQuery(String raw) {
+    final terms = raw
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]', unicode: true), ' ')
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .map((t) => '"$t"*');
+    return terms.join(' ');
+  }
+
   /// Search events across rawText and notes with optional key or date range filters.
   Future<List<Event>> searchEvents({
     String? query,
@@ -199,21 +276,77 @@ class AppDatabase extends _$AppDatabase {
     String? fromDate,
     String? toDate,
     int limit = 100,
+  }) async {
+    final q = query?.trim() ?? '';
+    final ftsQ = _ftsQuery(q);
+    final useFts = ftsAvailable && ftsQ.isNotEmpty;
+
+    if (!useFts) {
+      return _searchLike(
+        query: q,
+        keyId: keyId,
+        fromDate: fromDate,
+        toDate: toDate,
+        limit: limit,
+      );
+    }
+
+    final where = <String>['e.deleted_at IS NULL', 'events_fts MATCH ?'];
+    final vars = <Variable>[Variable.withString(ftsQ)];
+    if (keyId != null) {
+      where.add('e.key_id = ?');
+      vars.add(Variable.withInt(keyId));
+    }
+    if (fromDate != null) {
+      where.add('e.day_date >= ?');
+      vars.add(Variable.withString(fromDate));
+    }
+    if (toDate != null) {
+      where.add('e.day_date <= ?');
+      vars.add(Variable.withString(toDate));
+    }
+    vars.add(Variable.withInt(limit));
+
+    try {
+      final rows = await customSelect(
+        'SELECT e.* FROM events e JOIN events_fts ON events_fts.rowid = e.id '
+        'WHERE ${where.join(' AND ')} '
+        'ORDER BY bm25(events_fts), e.ts_utc DESC LIMIT ?',
+        variables: vars,
+        readsFrom: {events},
+      ).get();
+      return rows.map((r) => events.map(r.data)).toList();
+    } catch (_) {
+      // Malformed MATCH or FTS hiccup: degrade, never fail the screen.
+      return _searchLike(
+        query: q,
+        keyId: keyId,
+        fromDate: fromDate,
+        toDate: toDate,
+        limit: limit,
+      );
+    }
+  }
+
+  Future<List<Event>> _searchLike({
+    required String query,
+    int? keyId,
+    String? fromDate,
+    String? toDate,
+    required int limit,
   }) {
     final statement = select(events)
       ..where((e) {
         var expr = e.deletedAt.isNull();
-        if (keyId != null) {
-          expr = expr & e.keyId.equals(keyId);
-        }
+        if (keyId != null) expr = expr & e.keyId.equals(keyId);
         if (fromDate != null) {
           expr = expr & e.dayDate.isBiggerOrEqualValue(fromDate);
         }
         if (toDate != null) {
           expr = expr & e.dayDate.isSmallerOrEqualValue(toDate);
         }
-        if (query != null && query.trim().isNotEmpty) {
-          final term = '%${query.trim().toLowerCase()}%';
+        if (query.isNotEmpty) {
+          final term = '%${query.toLowerCase()}%';
           expr = expr &
               (e.rawText.lower().like(term) |
                   (e.note.isNotNull() & e.note.lower().like(term)));
@@ -222,7 +355,6 @@ class AppDatabase extends _$AppDatabase {
       })
       ..orderBy([(e) => OrderingTerm.desc(e.tsUtc)])
       ..limit(limit);
-
     return statement.get();
   }
 

@@ -80,6 +80,11 @@ void main() {
     // Verify search result appears
     expect(find.text('Dr Smith annual checkup'), findsOneWidget);
     expect(find.textContaining('Blood pressure'), findsOneWidget);
+
+    // Type query matching key name ('doctor') directly
+    await tester.enterText(find.byType(TextField), 'doctor');
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+    expect(find.text('Dr Smith annual checkup'), findsOneWidget);
   });
 }
 
