@@ -78,5 +78,6 @@ app.*.map.json
 *.sqlite-wal
 *.sqlite-shm
 *.keyva
+*.keylire
 exports/
-photos/
+/photos/

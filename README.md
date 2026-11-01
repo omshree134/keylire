@@ -1,6 +1,6 @@
-# Keyva
+# Keylire
 
-Keyva is a local-first, time-aware personal logbook and life tracker built with Flutter. It provides a chronological timeline interface designed around a three-tense model (Done, Planned, and List), on-device embedding matching, adaptive routine learning, and complete privacy.
+Keylire is a local-first, time-aware personal logbook and life tracker built with Flutter. It provides a chronological timeline interface designed around a three-tense model (Done, Planned, and List), on-device embedding matching, adaptive routine learning, and complete privacy.
 
 ---
 
@@ -30,7 +30,7 @@ Keyva is a local-first, time-aware personal logbook and life tracker built with 
 ### 5. Privacy and Local-First Storage
 - Backed by an on-device SQLite database via Drift.
 - Zero mandatory cloud sync, no accounts, and no analytics or telemetry tracking.
-- Passphrase-encrypted backup and restore generating portable `.keyva` archives.
+- Passphrase-encrypted backup and restore generating portable `.keylire` archives.
 
 ### 6. Patterns & Analytics
 - 12-week frequency heatmaps per key.
@@ -59,8 +59,8 @@ Keyva is a local-first, time-aware personal logbook and life tracker built with 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/omshree134/keyva.git
-   cd keyva/keyva
+   git clone https://github.com/omshree134/keylire.git
+   cd keylire
    ```
 
 2. Install dependencies:
@@ -88,7 +88,7 @@ Keyva is a local-first, time-aware personal logbook and life tracker built with 
 ## Repository Structure
 
 ```
-keyva/
+keylire/
 ├── lib/
 │   ├── core/         # Time resolution, day boundary logic, natural language parsing
 │   ├── data/         # Drift SQLite schema, migrations, and database access
