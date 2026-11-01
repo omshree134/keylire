@@ -81,3 +81,7 @@ app.*.map.json
 *.keylire
 exports/
 /photos/
+
+# Repomix dumps
+repomix*
+
