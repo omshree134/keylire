@@ -24,6 +24,9 @@ import '../../services/settings/settings_service.dart';
 import '../../services/nutrition/nutrition_service.dart';
 import '../../services/time/time_vocab_service.dart';
 import '../../services/widget/widget_sync_service.dart';
+import '../../services/cloud/cloud_capture_service.dart';
+import '../../services/cloud/cloud_gate.dart';
+import '../../services/entitlements/entitlements_service.dart';
 
 class WidgetActionBus {
   static final _c = StreamController<String>.broadcast();
@@ -43,6 +46,9 @@ class Services {
     required this.export,
     required this.metrics,
     required this.photos,
+    this.cloudGate,
+    this.cloudCapture,
+    this.entitlements,
   });
   final AppDatabase db;
   final SettingsService settings;
@@ -54,6 +60,9 @@ class Services {
   final ExportService export;
   final DogfoodMetrics metrics;
   final PhotoUnderstandingService photos;
+  final CloudGate? cloudGate;
+  final CloudCaptureService? cloudCapture;
+  final EntitlementsService? entitlements;
 }
 
 class ServicesScope extends InheritedWidget {
@@ -203,24 +212,8 @@ class TodayController extends ChangeNotifier {
   Iterable<EventView> get ghosts => events.where((e) => e.isGhost);
   int get unfiledCount => done.where((e) => e.keyId == null).length;
 
-  Future<String> resolveActiveDay([DateTime? at]) async {
-    final now = at ?? DateTime.now();
-    final cutoff = await _s.settings.dayCutoffHour();
-    final sleepEvening = await _s.settings.sleepEveningHour();
-    final resolver =
-        DayResolver(cutoffHour: cutoff, sleepEveningHour: sleepEvening);
-    DateTime? lastSleep;
-    final sleepKey = await _s.db.keyByName('sleep');
-    if (sleepKey != null) {
-      final base = resolver.resolveDayDate(now);
-      final s = await _s.db.latestSleepOnDay(base, sleepKey.id);
-      if (s != null) {
-        final sl = s.tsUtc.toLocal();
-        if (resolver.isQualifyingSleep(sl)) lastSleep = sl;
-      }
-    }
-    return resolver.resolveDayDate(now, lastQualifyingSleepLocal: lastSleep);
-  }
+  Future<String> resolveActiveDay([DateTime? at]) =>
+      _s.capture.activeDayDate(at);
 
   /// Header line two: "6 entries · gym 45 min · 3 planned". Live, local.
   String get arithmetic {
@@ -325,7 +318,10 @@ class TodayController extends ChangeNotifier {
     patternProposals = await _pendingPatternProposals(_s);
     loading = false;
     notifyListeners();
-    if (isToday) WidgetSyncService.syncWidgets(db: _s.db, todayEvents: rows);
+    if (isToday) {
+      WidgetSyncService.syncWidgets(
+          db: _s.db, todayEvents: rows, activeDay: _todayDate);
+    }
   }
 
   Future<void> updateEvent({
@@ -371,6 +367,9 @@ class TodayController extends ChangeNotifier {
                 ? const Value.absent()
                 : Value(jsonEncode(meta)),
             tsUtc: at != null ? Value(at.toUtc()) : const Value.absent(),
+            dayDate: at != null
+                ? Value(await _s.capture.activeDayDate(at))
+                : const Value.absent(),
           ));
       if (rememberMealName != null && nutrition != null) {
         await NutritionService(_s.db).remember(
@@ -566,6 +565,23 @@ class ChipsController extends ChangeNotifier {
   List<Chip> chips = const [];
   int _loadGeneration = 0;
 
+  Map<int, double>? _correctionDeltas; // keyId -> net nudge
+  void invalidateCorrections() => _correctionDeltas = null;
+
+  Future<Map<int, double>> _loadCorrectionDeltas(Map<int, String> names) async {
+    if (_correctionDeltas != null) return _correctionDeltas!;
+    final idsByName = {for (final e in names.entries) e.value.toLowerCase(): e.key};
+    final out = <int, double>{};
+    for (final c in await _s.db.allCorrections()) {
+      if (c.field != 'key') continue;
+      final p = idsByName[c.predicted?.toLowerCase()];
+      final k = idsByName[c.corrected.toLowerCase()];
+      if (p != null && p != k) out[p] = (out[p] ?? 0) - 3.0;
+      if (k != null) out[k] = (out[k] ?? 0) + 1.0;
+    }
+    return _correctionDeltas = out;
+  }
+
   Future<void> load({
     int count = 9,
     DateTime? referenceTime,
@@ -747,19 +763,8 @@ class ChipsController extends ChangeNotifier {
     // Corrections should affect future ordering, not only add a positive
     // anchor to the corrected key. Repeatedly rejected predictions are
     // gently demoted; corrected destinations are reinforced.
-    final idsByName = {
-      for (final e in names.entries) e.value.toLowerCase(): e.key
-    };
-    final corrections = await _s.db.allCorrections();
-    for (final correction in corrections.where((c) => c.field == 'key')) {
-      final predictedId = idsByName[correction.predicted?.toLowerCase()];
-      final correctedId = idsByName[correction.corrected.toLowerCase()];
-      if (predictedId != null && predictedId != correctedId) {
-        score[predictedId] = (score[predictedId] ?? 0) - 3.0;
-      }
-      if (correctedId != null) {
-        score[correctedId] = (score[correctedId] ?? 0) + 1.0;
-      }
+    for (final e in (await _loadCorrectionDeltas(names)).entries) {
+      score[e.key] = (score[e.key] ?? 0) + e.value;
     }
 
     // Give bonus to keys whose median time or manual override is close to now

@@ -276,9 +276,8 @@ void main() {
       final vocab = TimeVocabService(db);
       final capture = CaptureService(db, matcher, settings, vocab);
       final recurrence = RecurrenceEngine(db);
-      final llm = LlmClient(settings: settings);
       final dayClose =
-          DayCloseService(db, llm, settings, recurrence, DayResolver());
+          DayCloseService(db, settings, recurrence, DayResolver());
       final photos = PhotoUnderstandingService(db);
 
       services = Services(

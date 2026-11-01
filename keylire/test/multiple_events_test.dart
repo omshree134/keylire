@@ -7,7 +7,6 @@ import 'package:keylire/services/analysis/day_close_service.dart';
 import 'package:keylire/services/backup/export_service.dart';
 import 'package:keylire/services/capture/capture_service.dart';
 import 'package:keylire/services/embeddings/hashing_embedding_service.dart';
-import 'package:keylire/services/llm/llm_client.dart';
 import 'package:keylire/services/matching/key_matcher.dart';
 import 'package:keylire/services/metrics/dogfood_metrics.dart';
 import 'package:keylire/services/photos/photo_understanding_service.dart';
@@ -32,9 +31,8 @@ void main() {
     final vocab = TimeVocabService(db);
     final capture = CaptureService(db, matcher, settings, vocab);
     final recurrence = RecurrenceEngine(db);
-    final llm = LlmClient(settings: settings);
     final dayClose =
-        DayCloseService(db, llm, settings, recurrence, DayResolver());
+        DayCloseService(db, settings, recurrence, DayResolver());
     final photos = PhotoUnderstandingService(db);
 
     final services = Services(

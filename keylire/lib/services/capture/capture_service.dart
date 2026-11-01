@@ -462,6 +462,11 @@ class CaptureService {
     return now;
   }
 
+  /// The sleep-to-sleep day [at] belongs to. The ONLY place this is
+  /// computed; TodayController, WidgetSync and the headless isolate all
+  /// call this so they never disagree after midnight.
+  Future<String> activeDayDate([DateTime? at]) => _dayDateFor(at ?? DateTime.now());
+
   Future<String> _dayDateFor(DateTime local) async {
     final resolver = DayResolver(
       cutoffHour: await settings.dayCutoffHour(),

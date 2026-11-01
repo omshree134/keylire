@@ -11,6 +11,8 @@ import 'package:path_provider/path_provider.dart';
 import '../../data/db/database.dart' as db;
 import '../../data/db/database.dart' hide Key;
 import '../../services/backup/backup_file_bridge.dart';
+import '../../services/cloud/cloud_provider.dart';
+import '../../services/entitlements/entitlements_service.dart';
 import '../../services/photos/photo_understanding_service.dart';
 import '../controllers/app_state.dart';
 import '../theme/daylog_theme.dart';
@@ -30,6 +32,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   PhotoModelStatus _photoModelStatus = PhotoModelStatus.unsupported;
   bool _photoModelBusy = false;
   bool _hasPasscode = false;
+  bool _cloudAvailable = false;
+  Tier _tier = Tier.free;
+  final Map<CloudFeature, bool> _features = {};
 
   @override
   void didChangeDependencies() {
@@ -45,12 +50,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final photoStatus =
         await s.photos.captioner?.status() ?? PhotoModelStatus.unsupported;
     final hasPin = await s.settings.hasPasscode();
+    final gate = s.cloudGate;
+    final avail = gate == null ? false : await gate.anyProviderAvailable;
+    final tier = await s.entitlements?.tier() ?? Tier.free;
+    final feats = {
+      for (final f in CloudFeature.values)
+        f: await s.settings.cloudFeatureEnabled(f)
+    };
     if (mounted) {
       setState(() {
         _keys = keys;
         _training = t;
         _photoModelStatus = photoStatus;
         _hasPasscode = hasPin;
+        _cloudAvailable = avail;
+        _tier = tier;
+        _features
+          ..clear()
+          ..addAll(feats);
       });
     }
   }
@@ -507,6 +524,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _byokSheet() async {
+    final s = ServicesScope.of(context);
+    final key = TextEditingController(text: await s.settings.apiKey() ?? '');
+    final url = TextEditingController(text: await s.settings.cloudBaseUrl());
+    final text = TextEditingController(text: await s.settings.cloudTextModel());
+    final vision = TextEditingController(text: await s.settings.cloudVisionModel());
+    if (!mounted) return;
+    final dl = Dl.of(context);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(dl.x5, dl.x4, dl.x5, MediaQuery.viewInsetsOf(ctx).bottom + dl.x5),
+        child: SingleChildScrollView(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text('Your own API key', style: Theme.of(ctx).textTheme.titleLarge),
+            SizedBox(height: dl.x1),
+            Text('Any OpenAI-compatible endpoint. The key is stored only on this phone and sent only to the URL below.',
+                style: Theme.of(ctx).textTheme.bodySmall),
+            SizedBox(height: dl.x3),
+            TextField(controller: key, obscureText: true, decoration: const InputDecoration(labelText: 'API key')),
+            TextField(controller: url, decoration: const InputDecoration(labelText: 'Chat completions URL')),
+            TextField(controller: text, decoration: const InputDecoration(labelText: 'Text model')),
+            TextField(controller: vision, decoration: const InputDecoration(labelText: 'Vision model')),
+            SizedBox(height: dl.x4),
+            Row(children: [
+              TextButton(
+                  onPressed: () async {
+                    await s.settings.setApiKey(null);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Remove key')),
+              const Spacer(),
+              FilledButton(
+                  onPressed: () async {
+                    await s.settings.setApiKey(key.text);
+                    await s.settings.setCloudBaseUrl(url.text);
+                    await s.settings.setCloudTextModel(text.text);
+                    await s.settings.setCloudVisionModel(vision.text);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Save')),
+            ]),
+          ]),
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final dl = Dl.of(context);
@@ -598,6 +666,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
           ),
         SizedBox(height: dl.x6),
+        Text('Cloud assistance', style: theme.textTheme.titleSmall),
+        Text(
+          _tier == Tier.premium
+              ? 'Keylire Premium is active. Requests go through Keylire\'s servers; your logbook stays on this phone.'
+              : 'Off by default. Turn on a feature below and add your own API key, or upgrade to Premium.',
+          style: theme.textTheme.bodySmall,
+        ),
+        SizedBox(height: dl.x2),
+        for (final f in CloudFeature.values)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(f.label),
+            subtitle: Text('Sends ${f.sends}.'),
+            value: _features[f] ?? false,
+            onChanged: (v) async {
+              await s.settings.setCloudFeatureEnabled(f, v);
+              _load();
+            },
+          ),
+        if (_features.values.any((v) => v) && !_cloudAvailable)
+          Padding(
+            padding: EdgeInsets.only(top: dl.x1),
+            child: Text(
+              'Nothing will be sent until you add a key or upgrade.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+            ),
+          ),
+        _tile(Icons.vpn_key_outlined, 'Use your own API key', _byokSheet,
+            sub: 'Free. Groq, OpenAI, OpenRouter or any compatible endpoint.'),
+        if (_tier != Tier.premium)
+          _tile(Icons.workspace_premium_outlined, 'Keylire Premium', () {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Premium purchases arrive in a later build')));
+          }, sub: 'No key to manage. Photo reading, note splitting, summaries and insights.'),
+        SizedBox(height: dl.x6),
         Text('Privacy', style: theme.textTheme.titleSmall),
         Text(
             'Keylire matching, summaries, and photo recognition run on this phone. '
@@ -647,6 +750,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         if (_dev) ...[
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Dev: pretend Premium'),
+            value: _tier == Tier.premium,
+            onChanged: (v) async {
+              final e = s.entitlements;
+              if (e is LocalEntitlements) await e.setOverride(v);
+              _load();
+            },
+          ),
           _tile(Icons.download_outlined, 'Export corrections (jsonl)',
               _exportCorrections,
               sub:

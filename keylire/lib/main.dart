@@ -10,9 +10,13 @@ import 'data/db/database.dart';
 import 'services/analysis/day_close_service.dart';
 import 'services/backup/export_service.dart';
 import 'services/capture/capture_service.dart';
+import 'services/cloud/byok_provider.dart';
+import 'services/cloud/cloud_capture_service.dart';
+import 'services/cloud/cloud_gate.dart';
+import 'services/cloud/hosted_provider.dart';
 import 'services/embeddings/embedding_service.dart';
 import 'services/embeddings/switchable_embedding_service.dart';
-import 'services/llm/llm_client.dart';
+import 'services/entitlements/entitlements_service.dart';
 import 'services/matching/key_matcher.dart';
 import 'services/metrics/dogfood_metrics.dart';
 import 'services/photos/photo_understanding_service.dart';
@@ -47,9 +51,15 @@ void main() {
   final vocab = TimeVocabService(db);
   final capture = CaptureService(db, matcher, settings, vocab);
   final recurrence = RecurrenceEngine(db);
-  final llm = LlmClient(settings: settings); // dormant unless a key is entered
+  final entitlements = LocalEntitlements(db);
+  final cloudGate = CloudGate(
+    settings: settings,
+    hosted: HostedProvider(entitlements, baseUrl: AiConfig.hostedBaseUrl),
+    byok: ByokProvider(settings),
+  );
   final dayClose =
-      DayCloseService(db, llm, settings, recurrence, DayResolver());
+      DayCloseService(db, settings, recurrence, DayResolver(), cloud: cloudGate);
+  final cloudCapture = CloudCaptureService(db, capture, matcher, cloudGate);
   final photos =
       PhotoUnderstandingService(db, captioner: MlKitGenAiCaptioner());
 
@@ -64,12 +74,15 @@ void main() {
     export: ExportService(db),
     metrics: DogfoodMetrics(db),
     photos: photos,
+    cloudGate: cloudGate,
+    cloudCapture: cloudCapture,
+    entitlements: entitlements,
   );
 
   runApp(KeylireApp(services: services));
 
   Future.microtask(() async {
-    await settings.clearLegacyCloudAi();
+    await settings.migrateLegacyCloudSettings();
     final upgraded = await embedder.upgradeTo(
         OnnxEmbeddingService(), AiConfig.onnxEmbedderId);
     if (!upgraded) {
@@ -80,7 +93,7 @@ void main() {
       await _reembed(db, embedder);
       await settings.setEmbedderId(embedder.id);
     }
-    if ((await db.activeKeys()).isEmpty) {
+    if ((await db.select(db.keys).get()).isEmpty) {
       for (final e in seedLexicon.entries) {
         int? keyId;
         for (final phrase in e.value) {

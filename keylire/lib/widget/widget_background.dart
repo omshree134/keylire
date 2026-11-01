@@ -67,8 +67,9 @@ Future<void> keylireWidgetBackground(Uri? uri) async {
         await _photo(db, capture, matcher, q['path'], q['line']);
     }
 
-    final today = await _todayEvents(db);
-    await WidgetSyncService.syncWidgets(db: db, todayEvents: today);
+    final today = await capture.activeDayDate();
+    await WidgetSyncService.syncWidgets(
+        db: db, todayEvents: await db.eventsForDay(today), activeDay: today);
   } finally {
     await db.close();
   }
@@ -101,13 +102,4 @@ Future<void> _photo(AppDatabase db, CaptureService capture, KeyMatcher matcher, 
   } finally {
     photos.dispose();
   }
-}
-
-Future<List<Event>> _todayEvents(AppDatabase db) async {
-  final rows = await db.customSelect(
-    "SELECT day_date FROM events WHERE deleted_at IS NULL AND status='done' ORDER BY ts_utc DESC LIMIT 1",
-  ).getSingleOrNull();
-  final day = rows?.read<String>('day_date');
-  if (day == null) return const [];
-  return db.eventsForDay(day);
 }

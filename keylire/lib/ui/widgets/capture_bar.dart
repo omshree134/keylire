@@ -13,6 +13,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../data/db/database.dart';
 import '../../services/capture/capture_service.dart';
 import '../../services/photos/photo_understanding_service.dart';
+import '../../services/cloud/cloud_capture_service.dart';
+import '../../services/cloud/cloud_provider.dart';
 import '../controllers/app_state.dart';
 import '../theme/daylog_theme.dart';
 import 'key_picker_sheet.dart';
@@ -135,13 +137,35 @@ class _CaptureBarState extends State<CaptureBar> {
     final s = ServicesScope.of(context);
     setState(() => _busy = true);
     try {
-      final out = await s.capture.capture(
-          rawText: raw,
-          modality: effectiveModality,
-          captureMs: elapsed,
-          targetDayDate: widget.targetDayDate);
-      await widget.onLogged();
-      if (mounted) await _route(out, raw);
+      final cc = s.cloudCapture;
+      CloudExtraction? split;
+      if (cc != null && cc.looksLikeMultiple(raw)) {
+        try { split = await cc.splitText(raw); } catch (_) {}
+      }
+      if (split != null && split.entries.length > 1) {
+        // Save the raw dump first so nothing is lost, then expand it.
+        final out = await s.capture.capture(
+            rawText: raw,
+            modality: effectiveModality,
+            captureMs: elapsed,
+            targetDayDate: widget.targetDayDate);
+        final ids = await cc!.apply(split,
+            sourceEventId: out.eventId, targetDayDate: widget.targetDayDate);
+        await widget.onLogged();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Split into ${ids.length} entries')));
+        }
+      } else {
+        final out = await s.capture.capture(
+            rawText: raw,
+            modality: effectiveModality,
+            captureMs: elapsed,
+            targetDayDate: widget.targetDayDate);
+        await widget.onLogged();
+        if (mounted) await _route(out, raw);
+      }
+      _chips?.invalidateCorrections();
       _chips?.load(targetDayDate: widget.targetDayDate);
     } catch (e) {
       if (mounted) {
@@ -199,6 +223,7 @@ class _CaptureBarState extends State<CaptureBar> {
       _reset();
       await widget.onLogged();
       if (mounted) await _route(out, raw);
+      _chips?.invalidateCorrections();
       _chips?.load(targetDayDate: widget.targetDayDate);
     } catch (e) {
       if (mounted) {
@@ -478,6 +503,29 @@ class _CaptureBarState extends State<CaptureBar> {
               at: out.at,
               offerNote: out.wantsNote,
               onChanged: () => unawaited(widget.onLogged()));
+        }
+
+        // Cloud extraction runs AFTER on-device understanding, never instead.
+        final cc = s.cloudCapture;
+        if (cc != null) {
+          try {
+            final x = await cc.extractFromPhoto(saved,
+                userCaption: typed.isEmpty ? null : typed, local: u);
+            if (x != null && mounted) {
+              final ids = await cc.apply(x,
+                  sourceEventId: out.eventId, targetDayDate: widget.targetDayDate);
+              await widget.onLogged();
+              if (ids.length > 1 && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Read ${ids.length} entries from the photo')));
+              }
+            }
+          } on CloudException catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(e.message)));
+            }
+          } catch (_) {}
         }
       }());
     } catch (e) {

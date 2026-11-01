@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:drift/drift.dart' show Variable;
 import 'package:home_widget/home_widget.dart';
 
-import '../../core/time/day_resolver.dart';
 import '../../data/db/database.dart';
 
 /// Feeds the home-screen widget. Called after every write, from the app
@@ -20,10 +19,11 @@ class WidgetSyncService {
   static Future<void> syncWidgets({
     required AppDatabase db,
     required List<Event> todayEvents,
+    required String activeDay,
   }) async {
     try {
       final now = DateTime.now();
-      final today = DayResolver.formatDay(now);
+      final today = activeDay;
       final done = todayEvents.where((e) => e.status == 'done' && e.deletedAt == null).toList()
         ..sort((a, b) => a.tsUtc.compareTo(b.tsUtc));
       final keys = await db.activeKeys();

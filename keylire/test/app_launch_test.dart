@@ -7,7 +7,6 @@ import 'package:keylire/services/analysis/day_close_service.dart';
 import 'package:keylire/services/backup/export_service.dart';
 import 'package:keylire/services/capture/capture_service.dart';
 import 'package:keylire/services/embeddings/hashing_embedding_service.dart';
-import 'package:keylire/services/llm/llm_client.dart';
 import 'package:keylire/services/matching/key_matcher.dart';
 import 'package:keylire/services/metrics/dogfood_metrics.dart';
 import 'package:keylire/services/photos/photo_understanding_service.dart';
@@ -28,14 +27,13 @@ Services _services(AppDatabase db) {
   final matcher = KeyMatcher(db, embedder, settings);
   final vocab = TimeVocabService(db);
   final recurrence = RecurrenceEngine(db);
-  final llm = LlmClient(settings: settings);
   return Services(
     db: db,
     settings: settings,
     matcher: matcher,
     capture: CaptureService(db, matcher, settings, vocab),
     vocab: vocab,
-    dayClose: DayCloseService(db, llm, settings, recurrence, DayResolver()),
+    dayClose: DayCloseService(db, settings, recurrence, DayResolver()),
     recurrence: recurrence,
     export: ExportService(db),
     metrics: DogfoodMetrics(db),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 import '../../data/db/database.dart';
+import '../cloud/cloud_provider.dart';
 
 /// Typed access over the settings table.
 ///
@@ -14,36 +15,60 @@ class SettingsService {
   final AppDatabase db;
 
   // ------------------------------------------------------------ cloud AI
+  //
+  // Rules, enforced here not in the UI:
+  //   - Every cloud feature is a separate toggle, default OFF.
+  //   - BYOK: no key => nothing leaves the device regardless of toggles.
+  //   - Hosted: no entitlement => same.
+
+  static const _defaultBaseUrl =
+      'https://api.groq.com/openai/v1/chat/completions';
+  static const _defaultTextModel = 'llama-3.3-70b-versatile';
+  static const _defaultVisionModel = 'meta-llama/llama-4-scout-17b-16e-instruct';
 
   Future<String?> apiKey() async {
-    final g = await db.setting('groq_api_key');
-    if (g != null && g.trim().isNotEmpty) return g.trim();
+    final k = await db.setting('cloud_api_key');
+    if (k != null && k.trim().isNotEmpty) return k.trim();
     return null;
   }
 
   Future<bool> hasApiKey() async => (await apiKey()) != null;
+  Future<void> setApiKey(String? v) => db.putSetting('cloud_api_key', (v ?? '').trim());
 
-  Future<void> setApiKey(String? v) =>
-      db.putSetting('groq_api_key', (v ?? '').trim());
+  Future<String> cloudBaseUrl() async =>
+      (await db.setting('cloud_base_url'))?.trim().ifEmpty ?? _defaultBaseUrl;
+  Future<void> setCloudBaseUrl(String? v) => db.putSetting('cloud_base_url', (v ?? '').trim());
 
-  /// True only if the user has BOTH entered a key AND turned this on.
-  Future<bool> llmTextEnabled() async {
-    return false;
-  }
+  Future<String> cloudTextModel() async =>
+      (await db.setting('cloud_text_model'))?.trim().ifEmpty ?? _defaultTextModel;
+  Future<void> setCloudTextModel(String? v) => db.putSetting('cloud_text_model', (v ?? '').trim());
 
-  Future<bool> photoCloudEnabled() async {
-    return false;
-  }
+  Future<String> cloudVisionModel() async =>
+      (await db.setting('cloud_vision_model'))?.trim().ifEmpty ?? _defaultVisionModel;
+  Future<void> setCloudVisionModel(String? v) => db.putSetting('cloud_vision_model', (v ?? '').trim());
 
-  Future<void> setLlmTextEnabled(bool v) =>
-      db.putSetting('llm_text_enabled', '$v');
+  Future<bool> cloudFeatureEnabled(CloudFeature f) async =>
+      (await db.setting(f.settingKey)) == 'true';
+  Future<void> setCloudFeatureEnabled(CloudFeature f, bool v) =>
+      db.putSetting(f.settingKey, '$v');
 
-  Future<void> setPhotoCloudEnabled(bool v) =>
-      db.putSetting('photo_cloud_enabled', '$v');
+  /// Kept for DayCloseService's old call site; prefer CloudGate.
+  Future<bool> llmTextEnabled() => cloudFeatureEnabled(CloudFeature.dayClose);
 
-  /// Removes credentials and switches from the retired Groq configuration.
-  Future<void> clearLegacyCloudAi() async {
+  /// One-time: carry a key saved under the old name forward, and map the
+  /// old global toggles onto the new per-feature ones.
+  Future<void> migrateLegacyCloudSettings() async {
+    final old = await db.setting('groq_api_key');
+    if (old != null && old.isNotEmpty && (await db.setting('cloud_api_key')) == null) {
+      await db.putSetting('cloud_api_key', old);
+    }
     await db.putSetting('groq_api_key', '');
+    if ((await db.setting('llm_text_enabled')) == 'true') {
+      await setCloudFeatureEnabled(CloudFeature.dayClose, true);
+    }
+    if ((await db.setting('photo_cloud_enabled')) == 'true') {
+      await setCloudFeatureEnabled(CloudFeature.photoExtract, true);
+    }
     await db.putSetting('llm_text_enabled', 'false');
     await db.putSetting('photo_cloud_enabled', 'false');
   }
@@ -172,4 +197,8 @@ class SettingsService {
         hashObj.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return hashHex == expectedHash;
   }
+}
+
+extension on String {
+  String? get ifEmpty => isEmpty ? null : this;
 }

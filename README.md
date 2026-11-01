@@ -68,6 +68,11 @@ Keylire is a local-first, time-aware personal logbook and life tracker built wit
    flutter pub get
    ```
 
+2b. Download the embedding model (required — without it key matching is keyword-only):
+   ```bash
+   ./scripts/fetch_model.sh
+   ```
+
 3. Generate database code:
    ```bash
    dart run build_runner build --delete-conflicting-outputs

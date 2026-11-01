@@ -4,7 +4,8 @@ import 'package:drift/drift.dart';
 
 import '../../core/time/day_resolver.dart';
 import '../../data/db/database.dart';
-import '../llm/llm_client.dart';
+import '../cloud/cloud_gate.dart';
+import '../cloud/cloud_provider.dart';
 import '../recurrence/recurrence_engine.dart';
 import '../settings/settings_service.dart';
 import 'local_day_narrator.dart';
@@ -17,15 +18,16 @@ import 'local_day_narrator.dart';
 ///      call may replace the summary/flags and add prose key analyses.
 ///      Any failure leaves the local result in place.
 class DayCloseService {
-  DayCloseService(
-      this.db, this.llm, this.settings, this.recurrence, this.resolver)
-      : narrator = LocalDayNarrator(db);
+  DayCloseService(this.db, this.settings, this.recurrence, this.resolver,
+      {CloudGate? cloud})
+      : cloud = cloud ?? CloudGate.disabled(settings),
+        narrator = LocalDayNarrator(db);
 
   final AppDatabase db;
-  final LlmClient llm;
   final SettingsService settings;
   final RecurrenceEngine recurrence;
   final DayResolver resolver;
+  final CloudGate cloud;
   final LocalDayNarrator narrator;
 
   static const int maxAnalysisChars = 240;
@@ -100,15 +102,14 @@ OUTPUT SCHEMA:
     }
 
     // ---- optional cloud enrichment -------------------------------------
-    if (!await settings.llmTextEnabled()) return;
+    final provider = await cloud.providerFor(CloudFeature.dayClose);
+    if (provider == null) return;
 
     Map<String, dynamic> out;
     try {
-      out = await llm.completeJson(
+      out = await provider.completeJson(
         system: _system,
-        messages: [
-          {'role': 'user', 'content': await _buildPayload(dayDate, events, local)}
-        ],
+        user: await _buildPayload(dayDate, events, local),
         temperature: 0.3,
       );
     } catch (_) {
@@ -170,10 +171,16 @@ OUTPUT SCHEMA:
     final tomorrow = DayResolver.formatDay(d.add(const Duration(days: 1)));
     final ySummary = (await db.daySummary(yesterday))?.summary ?? 'none';
 
-    final future = await db.futureForDate(tomorrow);
-    final futureLines = future.isEmpty
+    final planned = (await db.plannedFrom(tomorrow))
+        .where((e) => e.dayDate == tomorrow)
+        .toList();
+    final futureLines = planned.isEmpty
         ? 'none'
-        : future.map((f) => '- ${f.timeHint ?? '--:--'} ${f.title}').join('\n');
+        : planned.map((e) {
+            final l = e.tsUtc.toLocal();
+            final name = e.keyId == null ? 'unfiled' : (keyName[e.keyId] ?? '?');
+            return '- ${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')} [$name] ${e.rawText}';
+          }).join('\n');
 
     final presentIds = events.map((e) => e.keyId).whereType<int>().toSet().toList();
     final analyses = await db.analysesForKeys(presentIds);

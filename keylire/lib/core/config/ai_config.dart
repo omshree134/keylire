@@ -10,6 +10,9 @@ class AiConfig {
   static const String groqBaseUrl =
       'https://api.groq.com/openai/v1/chat/completions';
 
+  /// Your proxy. Empty string = hosted tier disabled in this build.
+  static const String hostedBaseUrl = '';
+
   /// Text model used for the once-per-day close analysis (only when the user
   /// has entered a key and turned the toggle on).
   static const String defaultTextModel = 'llama-3.3-70b-versatile';

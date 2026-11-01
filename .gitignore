@@ -85,3 +85,8 @@ exports/
 # Repomix dumps
 repomix*
 
+# On-device ML models
+keylire/assets/models/*.onnx
+keylire/assets/models/vocab.txt
+
+
