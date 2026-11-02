@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 
 import '../../core/time/day_resolver.dart';
@@ -103,5 +104,5 @@ class _HeatPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_HeatPainter old) =>
-      old.counts != counts || old.hue != hue || old.maxCount != maxCount;
+      old.hue != hue || old.maxCount != maxCount || !mapEquals(old.counts, counts);
 }

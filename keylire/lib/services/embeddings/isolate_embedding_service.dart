@@ -28,6 +28,7 @@ class IsolateEmbeddingService implements EmbeddingService {
   Isolate? _isolate;
   SendPort? _toWorker;
   ReceivePort? _fromWorker;
+  ReceivePort? _errorPort;
   StreamSubscription<dynamic>? _sub;
   final _pending = <int, Completer<Float32List>>{};
   int _seq = 0;
@@ -39,7 +40,20 @@ class IsolateEmbeddingService implements EmbeddingService {
     final bytes = raw.buffer.asUint8List(raw.offsetInBytes, raw.lengthInBytes);
 
     _fromWorker = ReceivePort();
+    _errorPort = ReceivePort();
     final ready = Completer<SendPort>();
+
+    _errorPort!.listen((error) {
+      final err = error is List ? '${error[0]}\n${error[1]}' : '$error';
+      if (!ready.isCompleted) {
+        ready.completeError(StateError('Worker crashed on boot: $err'));
+      }
+      for (final c in _pending.values) {
+        c.completeError(StateError('Worker isolate crashed: $err'));
+      }
+      _pending.clear();
+    });
+
     _sub = _fromWorker!.listen((msg) {
       if (msg is SendPort) {
         ready.complete(msg);
@@ -67,6 +81,7 @@ class IsolateEmbeddingService implements EmbeddingService {
       ),
       debugName: 'keylire-embed',
       errorsAreFatal: true,
+      onError: _errorPort!.sendPort,
     );
     _toWorker = await ready.future.timeout(const Duration(seconds: 20));
   }
@@ -87,6 +102,7 @@ class IsolateEmbeddingService implements EmbeddingService {
     _toWorker?.send(const _Close());
     _sub?.cancel();
     _fromWorker?.close();
+    _errorPort?.close();
     _isolate?.kill(priority: Isolate.beforeNextEvent);
     for (final c in _pending.values) {
       c.completeError(StateError('embedder disposed'));
@@ -94,6 +110,7 @@ class IsolateEmbeddingService implements EmbeddingService {
     _pending.clear();
     _isolate = null;
     _toWorker = null;
+    _errorPort = null;
   }
 }
 

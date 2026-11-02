@@ -225,21 +225,14 @@ class _EventRowState extends State<_EventRow> {
     return InkWell(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: _timeCol,
-              child: Padding(
-                padding: EdgeInsets.only(top: dl.x3 + 1),
-                child: Text(ghost ? '~$hh:$mm' : '$hh:$mm',
-                    style: DlType.mono(context,
-                        size: 12.5, color: ghost ? faint : null)),
-              ),
-            ),
-            CustomPaint(
-              size: const Size(_railW, double.infinity),
+      child: Stack(
+        children: [
+          Positioned(
+            left: _timeCol,
+            top: 0,
+            bottom: 0,
+            width: _railW,
+            child: CustomPaint(
               painter: _RailPainter(
                 hue: ghost ? faint : hue,
                 topHue: widget.prevTime == null
@@ -253,11 +246,25 @@ class _EventRowState extends State<_EventRow> {
                 dotted: ghost,
               ),
             ),
-            SizedBox(width: dl.x3),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: dl.x3),
-                child: Column(
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: _timeCol,
+                child: Padding(
+                  padding: EdgeInsets.only(top: dl.x3 + 1),
+                  child: Text(ghost ? '~$hh:$mm' : '$hh:$mm',
+                      style: DlType.mono(context,
+                          size: 12.5, color: ghost ? faint : null)),
+                ),
+              ),
+              const SizedBox(width: _railW),
+              SizedBox(width: dl.x3),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: dl.x3),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(e.rawText,
@@ -348,8 +355,9 @@ class _EventRowState extends State<_EventRow> {
             ),
           ],
         ),
-      ),
-    );
+      ],
+    ),
+  );
   }
 
   static Color _mid(DateTime a, DateTime b) {
