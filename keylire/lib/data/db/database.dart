@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// False if this SQLite build has no FTS5; searchEvents then uses LIKE.
   bool ftsAvailable = false;
@@ -40,6 +40,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _seedSettings();
           await _ensureFts();
+          await _ensureIndexes();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -75,6 +76,10 @@ class AppDatabase extends _$AppDatabase {
             await _ensureFts();
             await putSetting('schema_version', '3');
           }
+          if (from < 4) {
+            await _ensureIndexes();
+            await putSetting('schema_version', '4');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -91,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedSettings() async {
     final defaults = <String, String>{
-      'schema_version': '3',
+      'schema_version': '4',
       'llm_text_enabled': 'false',
       'photo_cloud_enabled': 'false',
       'day_cutoff_hour': '4',
@@ -256,6 +261,30 @@ class AppDatabase extends _$AppDatabase {
     try {
       await customStatement("INSERT INTO events_fts(events_fts) VALUES ('rebuild')");
     } catch (_) {}
+  }
+
+  /// Every hot query filters on these. Composite order matters: equality
+  /// columns first, then the range/sort column.
+  Future<void> _ensureIndexes() async {
+    const stmts = [
+      // eventsForDay / doneEventsForDay / latestSleepOnDay / counts
+      'CREATE INDEX IF NOT EXISTS idx_events_day_ts ON events(day_date, ts_utc)',
+      // plannedFrom / pendingEvents / closeMissedDays
+      'CREATE INDEX IF NOT EXISTS idx_events_status_day ON events(status, day_date, ts_utc)',
+      // recentDoneForKey / Patterns.select / chip ranking join
+      'CREATE INDEX IF NOT EXISTS idx_events_key_status_ts ON events(key_id, status, ts_utc)',
+      // recentDone / widget sync / recurrence scan (time-bounded scans)
+      'CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_utc)',
+      // KeyMatcher.warmUp per key, mergeKeys
+      'CREATE INDEX IF NOT EXISTS idx_key_examples_key ON key_examples(key_id)',
+      // openListItems
+      'CREATE INDEX IF NOT EXISTS idx_list_items_open ON list_items(deleted_at, done_event_id, section, sort_order)',
+      // ChipsController routines, scanForProposals overlap checks
+      'CREATE INDEX IF NOT EXISTS idx_recurrences_key_dow ON recurrences(key_id, day_of_week, status)',
+    ];
+    for (final s in stmts) {
+      await customStatement(s);
+    }
   }
 
   /// "dent fri" -> '"dent"* "fri"*' : every term is a prefix, all must match.
@@ -474,15 +503,27 @@ class AppDatabase extends _$AppDatabase {
 
   // -------------------------------------------------------------- settings
 
+  final Map<String, String?> _settingsCache = {};
+
   Future<String?> setting(String key) async {
-    final row =
-        await (select(settings)..where((s) => s.k.equals(key))).getSingleOrNull();
-    return row?.v;
+    if (_settingsCache.containsKey(key)) return _settingsCache[key];
+    final row = await (select(settings)..where((s) => s.k.equals(key)))
+        .getSingleOrNull();
+    return _settingsCache[key] = row?.v;
   }
 
-  Future<void> putSetting(String key, String value) =>
-      into(settings).insertOnConflictUpdate(
-          SettingsCompanion(k: Value(key), v: Value(value)));
+  Future<void> putSetting(String key, String value) async {
+    _settingsCache[key] = value;
+    await into(settings).insertOnConflictUpdate(
+        SettingsCompanion(k: Value(key), v: Value(value)));
+  }
+
+  Future<void> deleteSetting(String key) async {
+    _settingsCache.remove(key);
+    await (delete(settings)..where((s) => s.k.equals(key))).go();
+  }
+
+  void clearSettingsCache() => _settingsCache.clear();
 }
 
 LazyDatabase _open() {

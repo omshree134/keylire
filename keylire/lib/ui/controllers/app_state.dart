@@ -317,7 +317,7 @@ class TodayController extends ChangeNotifier {
     }
     memories = memList;
 
-    if (isToday) await _s.recurrence.scanForProposals();
+    if (isToday) await _s.recurrence.scanIfDue();
     patternProposals = await _pendingPatternProposals(_s);
     loading = false;
     notifyListeners();
@@ -1073,7 +1073,7 @@ class PatternsController extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    await _s.recurrence.scanForProposals();
+    await _s.recurrence.scanIfDue();
     patternProposals = await _pendingPatternProposals(_s);
     final ks = await _s.db.activeKeys();
     keys = [for (final k in ks) (id: k.id, name: k.name)];

@@ -39,8 +39,7 @@ class NutritionService {
         .toList();
   }
 
-  Future<void> forget(String id) =>
-      db.customStatement('DELETE FROM settings WHERE k = ?', ['$prefix$id']);
+  Future<void> forget(String id) => db.deleteSetting('$prefix$id');
 
   Future<void> remember(
       {required String name,

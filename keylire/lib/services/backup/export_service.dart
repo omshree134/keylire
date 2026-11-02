@@ -268,6 +268,7 @@ class ExportService {
     } finally {
       await db.customStatement('PRAGMA foreign_keys = ON');
     }
+    db.clearSettingsCache();
     await db.rebuildSearchIndex();
   }
 

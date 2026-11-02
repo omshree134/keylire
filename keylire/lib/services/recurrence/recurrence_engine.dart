@@ -19,6 +19,15 @@ class RecurrenceEngine {
   final int lookbackWeeks;
   final int minHits;
 
+  /// At most once per calendar day. Day close still calls scanForProposals
+  /// directly; this is for the UI paths that used to call it on every load.
+  Future<void> scanIfDue() async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (await db.setting('recurrence_scan_day') == today) return;
+    await scanForProposals();
+    await db.putSetting('recurrence_scan_day', today);
+  }
+
   /// Full scan across active keys. Run at day close (cheap: pure SQL + Dart).
   Future<List<Recurrence>> scanForProposals() async {
     final proposals = <Recurrence>[];
