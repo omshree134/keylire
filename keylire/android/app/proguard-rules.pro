@@ -14,3 +14,9 @@
 
 # SQLite3 Flutter Libs
 -keep class org.sqlite.** { *; }
+
+# Kotlin bridges called by name from Dart
+-keep class com.keylire.app.** { *; }
+# flutter_local_notifications serialises via Gson
+-keep class com.dexterous.** { *; }
+-keepattributes *Annotation*

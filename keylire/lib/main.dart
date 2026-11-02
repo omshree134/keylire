@@ -96,17 +96,18 @@ void main() {
   runApp(KeylireApp(services: services));
 
   Future.microtask(() async {
+    final upgraded = await embedder.upgradeTo(
+        IsolateEmbeddingService(), AiConfig.onnxEmbedderId);
+    embedder.markReady();
+    if (!upgraded) {
+      debugPrint(
+          'Keylire: ONNX model missing - matcher is running the dev hashing embedder.');
+    }
     await settings.migrateLegacyCloudSettings();
     if (entitlements is RevenueCatEntitlements) {
       await entitlements.configure(
           androidKey: AiConfig.revenueCatAndroidKey,
           iosKey: AiConfig.revenueCatIosKey);
-    }
-    final upgraded = await embedder.upgradeTo(
-        IsolateEmbeddingService(), AiConfig.onnxEmbedderId);
-    if (!upgraded) {
-      debugPrint(
-          'Keylire: ONNX model missing - matcher is running the dev hashing embedder.');
     }
     if (await settings.embedderId() != embedder.id) {
       await _reembed(db, embedder);

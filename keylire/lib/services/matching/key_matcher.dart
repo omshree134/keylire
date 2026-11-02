@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../data/db/database.dart';
 import '../embeddings/embedding_service.dart';
+import '../embeddings/switchable_embedding_service.dart';
 import '../settings/settings_service.dart';
 
 enum MatchDecision { autoAssign, picker, newKey }
@@ -55,6 +56,10 @@ class KeyMatcher {
   void invalidate() => _cache = null;
 
   Future<MatchResult> match(String input) async {
+    final e = embedder;
+    if (e is SwitchableEmbeddingService) {
+      await e.ready.timeout(const Duration(seconds: 4), onTimeout: () {});
+    }
     if (_cache == null) await warmUp();
     final v = await embedder.embed(input);
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../../core/config/ai_config.dart';
@@ -14,6 +15,13 @@ class SwitchableEmbeddingService implements EmbeddingService {
 
   EmbeddingService _inner;
   String _id = AiConfig.hashingEmbedderId;
+  final _ready = Completer<void>();
+
+  /// Completes once an upgrade has been attempted (success or not).
+  Future<void> get ready => _ready.future;
+  void markReady() {
+    if (!_ready.isCompleted) _ready.complete();
+  }
 
   /// Stable identifier of whatever is currently answering [embed].
   String get id => _id;
