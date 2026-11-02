@@ -16,6 +16,7 @@ import '../../services/entitlements/entitlements_service.dart';
 import '../../services/photos/photo_understanding_service.dart';
 import '../controllers/app_state.dart';
 import '../theme/daylog_theme.dart';
+import '../widgets/keylire_mark.dart';
 import 'how_to_use_screen.dart';
 import 'saved_meals_screen.dart';
 
@@ -818,8 +819,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: () => setState(() => _dev = !_dev),
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: dl.x2),
-            child: Text('Keylire 0.2 · local-first',
-                style: theme.textTheme.bodySmall),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const KeylireMark(size: 20),
+                SizedBox(width: dl.x2),
+                Text('Keylire 0.2 · local-first',
+                    style: theme.textTheme.bodySmall),
+              ],
+            ),
           ),
         ),
         if (_dev) ...[

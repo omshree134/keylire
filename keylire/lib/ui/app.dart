@@ -15,6 +15,7 @@ import 'screens/patterns_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/today_screen.dart';
 import 'theme/daylog_theme.dart';
+import 'widgets/keylire_mark.dart';
 import 'widgets/undo_chip.dart';
 
 class KeylireApp extends StatelessWidget {
@@ -387,8 +388,7 @@ class _PasscodeLockScreenState extends State<_PasscodeLockScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(flex: 2),
-              Icon(Icons.lock_outline,
-                  size: 40, color: theme.colorScheme.primary),
+              const KeylireMark(size: 56),
               SizedBox(height: dl.x3),
               Text('Keylire', style: theme.textTheme.displayMedium),
               SizedBox(height: dl.x1),

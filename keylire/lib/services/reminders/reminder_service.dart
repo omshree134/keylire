@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show Color;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -54,7 +55,7 @@ class ReminderService {
     }
     await _plugin.initialize(
       InitializationSettings(
-        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: const AndroidInitializationSettings('@drawable/ic_notification'),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -139,6 +140,7 @@ class ReminderService {
             importance: Importance.high,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
+            color: const Color(0xFF7A4F78),
             actions: const [
               AndroidNotificationAction('done', 'Done',
                   showsUserInterface: false),
@@ -197,6 +199,7 @@ class ReminderService {
         android: AndroidNotificationDetails(_chNudges, 'Daily nudges',
             channelDescription: 'Morning digest and evening check-in',
             importance: Importance.defaultImportance,
+            color: const Color(0xFF7A4F78),
             styleInformation: BigTextStyleInformation(body)),
         iOS: const DarwinNotificationDetails(),
       ),
@@ -228,6 +231,7 @@ class ReminderService {
       const NotificationDetails(
         android: AndroidNotificationDetails(_chNudges, 'Daily nudges',
             channelDescription: 'Morning digest and evening check-in',
+            color: Color(0xFF7A4F78),
             importance: Importance.low),
         iOS: DarwinNotificationDetails(),
       ),

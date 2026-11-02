@@ -1,5 +1,11 @@
 # Keylire
 
+<p align="center">
+  <img src="keylire/assets/icon/icon_full.png" width="128" alt="Keylire Logo" />
+</p>
+
+Logo: a stylised musical natural sign — the public-domain glyph plus Keylire's ribbon stitches.
+
 Keylire is a local-first, time-aware personal logbook and life tracker built with Flutter. It provides a chronological timeline interface designed around a three-tense model (Done, Planned, and List), on-device embedding matching, adaptive routine learning, and complete privacy.
 
 ---
