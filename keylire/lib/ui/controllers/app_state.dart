@@ -563,11 +563,42 @@ class Chip {
       reasonLabel.isEmpty ? name : '$name · $reasonLabel';
 }
 
+class _ChipBase {
+  _ChipBase({
+    required this.cacheKey,
+    required this.scores,
+    required this.reasons,
+    required this.minutes,
+    required this.overrides,
+    required this.keys,
+    required this.names,
+    required this.sleepKey,
+    required this.wakeKey,
+    required this.dueChips,
+  });
+  final String cacheKey; // '$today|${nowMin ~/ 5}'
+  final Map<int, double> scores;
+  final Map<int, ChipReason> reasons;
+  final Map<int, List<int>> minutes;
+  final Map<int, int?> overrides;
+  final List<Key> keys;
+  final Map<int, String> names;
+  final Key sleepKey;
+  final Key wakeKey;
+  final List<Chip> dueChips;
+}
+
 class ChipsController extends ChangeNotifier {
   ChipsController(this._s);
   final Services _s;
   List<Chip> chips = const [];
   int _loadGeneration = 0;
+
+  _ChipBase? _base;
+  void invalidate() {
+    _base = null;
+    _correctionDeltas = null;
+  }
 
   Map<int, double>? _correctionDeltas; // keyId -> net nudge
   void invalidateCorrections() => _correctionDeltas = null;
@@ -586,29 +617,19 @@ class ChipsController extends ChangeNotifier {
     return _correctionDeltas = out;
   }
 
-  Future<void> load({
-    int count = 9,
-    DateTime? referenceTime,
-    String? targetDayDate,
-    String query = '',
-  }) async {
-    final generation = ++_loadGeneration;
-    final now = referenceTime ?? DateTime.now();
-    final nowMin = now.hour * 60 + now.minute;
-    final today = targetDayDate ?? DayResolver.formatDay(now);
-    final cleanQuery = query.trim();
-
+  Future<_ChipBase> _buildBase(
+      DateTime now, String today, int nowMin, String cacheKey) async {
     final keys = List<Key>.from(await _s.db.activeKeys());
     final names = {for (final k in keys) k.id: k.name};
-    final out = <Chip>[];
-    final seenKeys = <int>{};
+    final dueChips = <Chip>[];
+    final seenDueKeys = <int>{};
 
     // 1. due now: planned events within -30..+90 min, today
     for (final e in await _s.db.plannedFrom(today)) {
       if (e.keyId == null) continue;
       final diff = e.tsUtc.toLocal().difference(now).inMinutes;
-      if (diff >= -30 && diff <= 90 && seenKeys.add(e.keyId!)) {
-        out.add(Chip(
+      if (diff >= -30 && diff <= 90 && seenDueKeys.add(e.keyId!)) {
+        dueChips.add(Chip(
             keyId: e.keyId!,
             name: names[e.keyId] ?? e.rawText,
             plannedEventId: e.id,
@@ -723,26 +744,8 @@ class ChipsController extends ChangeNotifier {
       score[id] = score[id]! + 0.12;
     }
 
-    // Phrase relevance comes from the same personal examples and corrections
-    // used for capture. Debouncing lives in CaptureBar; this method stays
-    // useful for tests, widgets, and other selector surfaces.
-    if (cleanQuery.length >= 2) {
-      final match = await _s.matcher.match(cleanQuery);
-      for (var i = 0; i < match.top.length; i++) {
-        final candidate = match.top[i];
-        if (!names.containsKey(candidate.keyId)) continue;
-        final rankBonus = (3 - i) * 4.0;
-        score[candidate.keyId] = (score[candidate.keyId] ?? 0) +
-            28.0 +
-            rankBonus +
-            candidate.score.clamp(0.0, 1.0) * 18.0;
-        markReason(candidate.keyId, ChipReason.phrase);
-      }
-    }
-
     // Confirmed routines become contextual selector suggestions on their
-    // weekday and around their learned window. A routine does not create a
-    // planned event by itself; tapping still logs the key once, immediately.
+    // weekday and around their learned window.
     final dayDow = DateTime.parse(today).weekday - 1;
     final routines = await (_s.db.select(_s.db.recurrences)
           ..where(
@@ -764,9 +767,7 @@ class ChipsController extends ChangeNotifier {
       }
     }
 
-    // Corrections should affect future ordering, not only add a positive
-    // anchor to the corrected key. Repeatedly rejected predictions are
-    // gently demoted; corrected destinations are reinforced.
+    // Corrections deltas
     for (final e in (await _loadCorrectionDeltas(names)).entries) {
       score[e.key] = (score[e.key] ?? 0) + e.value;
     }
@@ -811,42 +812,90 @@ class ChipsController extends ChangeNotifier {
     // Dynamic scoring for Up (wake) based on learned wake schedule:
     final dWake = _circDiff(nowMin, wakeMinute);
     if (now.hour >= 4 && now.hour <= 11) {
-      // Morning window: high priority, especially if not yet logged
       score[wakeKey.id] =
           !wakeLoggedToday ? 35.0 + (180 - dWake.clamp(0, 180)) / 10.0 : 1.0;
     } else {
-      // Daytime / Evening / Night: Up drops to low priority
       score[wakeKey.id] = wakeLoggedToday ? 0.05 : 0.6;
     }
 
     // Dynamic scoring for Bed (sleep) based on learned sleep schedule:
     final dSleep = _circDiff(nowMin, sleepMinute);
     if (now.hour >= 20 || now.hour < 4) {
-      // Bedtime window: high priority, especially if approaching bedtime
       score[sleepKey.id] =
           !sleepLoggedToday ? 35.0 + (180 - dSleep.clamp(0, 180)) / 10.0 : 1.0;
     } else if (now.hour >= 13 && now.hour < 15) {
-      // Midday nap possibility
       score[sleepKey.id] = 1.5;
     } else {
-      // Morning / Daytime: Bed drops to low priority
       score[sleepKey.id] = 0.05;
     }
 
-    // 4. Rank keys by time score
+    return _ChipBase(
+      cacheKey: cacheKey,
+      scores: score,
+      reasons: reasons,
+      minutes: minutes,
+      overrides: overrides,
+      keys: keys,
+      names: names,
+      sleepKey: sleepKey,
+      wakeKey: wakeKey,
+      dueChips: dueChips,
+    );
+  }
+
+  Future<void> load({
+    int count = 9,
+    DateTime? referenceTime,
+    String? targetDayDate,
+    String query = '',
+  }) async {
+    final generation = ++_loadGeneration;
+    final now = referenceTime ?? DateTime.now();
+    final nowMin = now.hour * 60 + now.minute;
+    final today = targetDayDate ?? DayResolver.formatDay(now);
+    final cleanQuery = query.trim();
+    final cacheKey = '$today|${nowMin ~/ 5}';
+
+    final base = (_base != null && _base!.cacheKey == cacheKey)
+        ? _base!
+        : (_base = await _buildBase(now, today, nowMin, cacheKey));
+
+    final score = Map<int, double>.from(base.scores);
+    final reasons = Map<int, ChipReason>.from(base.reasons);
+    final out = List<Chip>.from(base.dueChips);
+    final seenKeys = {for (final c in base.dueChips) c.keyId};
+
+    // Phrase relevance comes from the same personal examples and corrections
+    // used for capture. Debouncing lives in CaptureBar; this method stays
+    // useful for tests, widgets, and other selector surfaces.
+    if (cleanQuery.length >= 2) {
+      final match = await _s.matcher.match(cleanQuery);
+      for (var i = 0; i < match.top.length; i++) {
+        final candidate = match.top[i];
+        if (!base.names.containsKey(candidate.keyId)) continue;
+        final rankBonus = (3 - i) * 4.0;
+        score[candidate.keyId] = (score[candidate.keyId] ?? 0) +
+            28.0 +
+            rankBonus +
+            candidate.score.clamp(0.0, 1.0) * 18.0;
+        reasons[candidate.keyId] = ChipReason.phrase;
+      }
+    }
+
+    // Rank keys by time score
     final ranked = score.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     for (final e in ranked) {
       if (out.length >= count) break;
       if (!seenKeys.add(e.key)) continue;
-      final rawName = names[e.key];
+      final rawName = base.names[e.key];
       if (rawName == null) continue;
 
       final isBed = rawName == 'sleep';
       final isUp = rawName == 'wake';
       final displayName = isBed ? 'Bed' : (isUp ? 'Up' : rawName);
-      final ms = minutes[e.key];
-      final med = overrides[e.key] ??
+      final ms = base.minutes[e.key];
+      final med = base.overrides[e.key] ??
           (ms == null || ms.length < 2 ? null : _median(ms));
 
       out.add(Chip(
@@ -862,13 +911,16 @@ class ChipsController extends ChangeNotifier {
     }
 
     // Ensure Bed and Up are available in the chips row (even if ranked later during the day)
-    if (seenKeys.add(wakeKey.id)) {
+    if (seenKeys.add(base.wakeKey.id)) {
       out.add(Chip(
-          keyId: wakeKey.id, name: 'Up', isUp: true, reason: ChipReason.fixed));
+          keyId: base.wakeKey.id,
+          name: 'Up',
+          isUp: true,
+          reason: ChipReason.fixed));
     }
-    if (seenKeys.add(sleepKey.id)) {
+    if (seenKeys.add(base.sleepKey.id)) {
       out.add(Chip(
-          keyId: sleepKey.id,
+          keyId: base.sleepKey.id,
           name: 'Bed',
           isBed: true,
           reason: ChipReason.fixed));

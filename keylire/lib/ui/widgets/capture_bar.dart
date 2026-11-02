@@ -217,7 +217,7 @@ class _CaptureBarState extends State<CaptureBar> {
         await widget.onLogged();
         if (mounted) await _route(out, raw);
       }
-      _chips?.invalidateCorrections();
+      _chips?.invalidate();
       _chips?.load(targetDayDate: widget.targetDayDate);
     } catch (e) {
       if (mounted) {
@@ -240,6 +240,7 @@ class _CaptureBarState extends State<CaptureBar> {
         captureMs: _openedAt == null ? 900 : _elapsed,
         targetDayDate: widget.targetDayDate);
     await widget.onLogged();
+    _chips?.invalidate();
     _chips?.load(targetDayDate: widget.targetDayDate);
   }
 
@@ -277,7 +278,7 @@ class _CaptureBarState extends State<CaptureBar> {
       _reset();
       await widget.onLogged();
       if (mounted) await _route(out, raw);
-      _chips?.invalidateCorrections();
+      _chips?.invalidate();
       _chips?.load(targetDayDate: widget.targetDayDate);
     } catch (e) {
       if (mounted) {
@@ -304,6 +305,7 @@ class _CaptureBarState extends State<CaptureBar> {
           .capture
           .completePlanned(c.plannedEventId!);
       await widget.onLogged();
+      _chips?.invalidate();
       _chips?.load(targetDayDate: widget.targetDayDate);
       return;
     }
@@ -318,6 +320,7 @@ class _CaptureBarState extends State<CaptureBar> {
     HapticFeedback.lightImpact();
     await ServicesScope.of(context).capture.bed(captureMs: 600);
     await widget.onLogged();
+    _chips?.invalidate();
     _chips?.load(targetDayDate: widget.targetDayDate);
   }
 
@@ -325,6 +328,7 @@ class _CaptureBarState extends State<CaptureBar> {
     HapticFeedback.lightImpact();
     await ServicesScope.of(context).capture.up(captureMs: 600);
     await widget.onLogged();
+    _chips?.invalidate();
     _chips?.load(targetDayDate: widget.targetDayDate);
   }
 
