@@ -33,6 +33,22 @@ void main() {
       expect(healthy, isTrue);
     });
 
+    test('Schema v4 indexes exist in sqlite_master', () async {
+      final rows = await db.customSelect(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name",
+      ).get();
+      final names = rows.map((r) => r.read<String>('name')).toList();
+      expect(names, [
+        'idx_events_day_ts',
+        'idx_events_key_status_ts',
+        'idx_events_status_day',
+        'idx_events_ts',
+        'idx_key_examples_key',
+        'idx_list_items_open',
+        'idx_recurrences_key_dow',
+      ]);
+    });
+
     test('searchEvents filters by text, keyId, and date range', () async {
       final gymKeyId = await db.createKey('gym');
       final workKeyId = await db.createKey('work');
