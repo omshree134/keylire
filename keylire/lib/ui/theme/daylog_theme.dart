@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// KEYLIRE — ink on bone.
 ///
@@ -91,12 +90,16 @@ class DlType {
   static TextTheme textTheme(Brightness b) {
     final ink = b == Brightness.dark ? DlColors.inkDark : DlColors.ink;
     final soft = b == Brightness.dark ? DlColors.inkSoftDark : DlColors.inkSoft;
-    final base = GoogleFonts.instrumentSansTextTheme();
     TextStyle sans(double size, FontWeight w, {Color? color, double? height, double spacing = 0}) =>
-        GoogleFonts.instrumentSans(
-            fontSize: size, fontWeight: w, color: color ?? ink, height: height, letterSpacing: spacing);
+        TextStyle(
+            fontFamily: 'InstrumentSans',
+            fontSize: size,
+            fontWeight: w,
+            color: color ?? ink,
+            height: height,
+            letterSpacing: spacing);
 
-    return base.copyWith(
+    return TextTheme(
       displayLarge: sans(40, FontWeight.w600, height: 1.05, spacing: -1.0),
       displaySmall: sans(28, FontWeight.w600, height: 1.1, spacing: -0.6),
       headlineMedium: sans(22, FontWeight.w600, spacing: -0.3),
@@ -106,13 +109,19 @@ class DlType {
       bodyMedium: sans(14.5, FontWeight.w400, height: 1.45),
       bodySmall: sans(12.5, FontWeight.w400, color: soft, height: 1.35),
       labelLarge: sans(14, FontWeight.w600),
-      labelSmall: GoogleFonts.ibmPlexMono(fontSize: 11, fontWeight: FontWeight.w500, color: soft),
+      labelSmall: TextStyle(
+        fontFamily: 'IBMPlexMono',
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: soft,
+      ),
     );
   }
 
   static TextStyle mono(BuildContext context,
           {double size = 12.5, Color? color, FontWeight? weight}) =>
-      GoogleFonts.ibmPlexMono(
+      TextStyle(
+        fontFamily: 'IBMPlexMono',
         fontSize: size,
         color: color ??
             (Theme.of(context).brightness == Brightness.dark
@@ -150,6 +159,7 @@ ThemeData daylogTheme(Brightness brightness) {
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: 'InstrumentSans',
     colorScheme: scheme,
     scaffoldBackgroundColor: paper,
     textTheme: text,
@@ -169,7 +179,7 @@ ThemeData daylogTheme(Brightness brightness) {
       height: 64,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       labelTextStyle: WidgetStatePropertyAll(
-          GoogleFonts.instrumentSans(fontSize: 12, fontWeight: FontWeight.w600, color: ink)),
+          TextStyle(fontFamily: 'InstrumentSans', fontSize: 12, fontWeight: FontWeight.w600, color: ink)),
       iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
           size: 22, color: s.contains(WidgetState.selected) ? ink : soft)),
     ),
@@ -178,8 +188,8 @@ ThemeData daylogTheme(Brightness brightness) {
       selectedColor: ink,
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Dl.radiusPill)),
-      labelStyle: GoogleFonts.instrumentSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: ink),
-      secondaryLabelStyle: GoogleFonts.instrumentSans(fontSize: 13.5, fontWeight: FontWeight.w600, color: paper),
+      labelStyle: TextStyle(fontFamily: 'InstrumentSans', fontSize: 13.5, fontWeight: FontWeight.w600, color: ink),
+      secondaryLabelStyle: TextStyle(fontFamily: 'InstrumentSans', fontSize: 13.5, fontWeight: FontWeight.w600, color: paper),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       showCheckmark: false,
     ),
@@ -187,7 +197,7 @@ ThemeData daylogTheme(Brightness brightness) {
       border: UnderlineInputBorder(borderSide: BorderSide(color: line)),
       enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: line)),
       focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: ink, width: 1.5)),
-      hintStyle: GoogleFonts.instrumentSans(color: soft, fontSize: 16),
+      hintStyle: TextStyle(fontFamily: 'InstrumentSans', color: soft, fontSize: 16),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -195,18 +205,18 @@ ThemeData daylogTheme(Brightness brightness) {
         foregroundColor: paper,
         minimumSize: const Size(Dl.tapMin, Dl.tapMin),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Dl.radiusSmall)),
-        textStyle: GoogleFonts.instrumentSans(fontSize: 14.5, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontFamily: 'InstrumentSans', fontSize: 14.5, fontWeight: FontWeight.w600),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: ink,
-        textStyle: GoogleFonts.instrumentSans(fontSize: 14.5, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontFamily: 'InstrumentSans', fontSize: 14.5, fontWeight: FontWeight.w600),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: dark ? DlColors.surfaceElevatedDark : DlColors.ink,
-      contentTextStyle: GoogleFonts.instrumentSans(color: dark ? DlColors.inkDark : DlColors.paper, fontSize: 14),
+      contentTextStyle: TextStyle(fontFamily: 'InstrumentSans', color: dark ? DlColors.inkDark : DlColors.paper, fontSize: 14),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Dl.radiusSmall)),
     ),
