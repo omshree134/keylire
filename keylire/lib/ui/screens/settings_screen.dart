@@ -33,6 +33,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _photoModelBusy = false;
   bool _hasPasscode = false;
   bool _biometric = false;
+  bool _notifications = false;
+  bool _nudgeMorning = true;
+  bool _nudgeEvening = true;
   bool _cloudAvailable = false;
   Tier _tier = Tier.free;
   final Map<CloudFeature, bool> _features = {};
@@ -52,6 +55,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await s.photos.captioner?.status() ?? PhotoModelStatus.unsupported;
     final hasPin = await s.settings.hasPasscode();
     final bio = await s.settings.biometricEnabled();
+    final notifs = await s.settings.notificationsEnabled();
+    final morning = await s.settings.nudgeMorning();
+    final evening = await s.settings.nudgeEvening();
     final gate = s.cloudGate;
     final avail = gate == null ? false : await gate.anyProviderAvailable;
     final tier = await s.entitlements?.tier() ?? Tier.free;
@@ -66,6 +72,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _photoModelStatus = photoStatus;
         _hasPasscode = hasPin;
         _biometric = bio;
+        _notifications = notifs;
+        _nudgeMorning = morning;
+        _nudgeEvening = evening;
         _cloudAvailable = avail;
         _tier = tier;
         _features
@@ -632,6 +641,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _load();
           },
         ),
+        SizedBox(height: dl.x6),
+        Text('Reminders', style: theme.textTheme.titleSmall),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Remind me of planned entries'),
+          subtitle:
+              const Text('A notification at the time, with Done and Skip.'),
+          value: _notifications,
+          onChanged: (v) async {
+            if (v) {
+              final ok = await s.reminders?.requestPermission() ?? false;
+              if (!ok) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content:
+                          Text('Notifications are blocked in system settings')));
+                }
+                return;
+              }
+            }
+            await s.settings.setNotificationsEnabled(v);
+            s.reminders?.sync();
+            _load();
+          },
+        ),
+        if (_notifications) ...[
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Morning digest'),
+            subtitle: const Text(
+                'Today\'s plans, shortly after your usual wake time.'),
+            value: _nudgeMorning,
+            onChanged: (v) async {
+              await s.settings.setNudgeMorning(v);
+              s.reminders?.sync();
+              _load();
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Evening check-in'),
+            subtitle: const Text('An hour before bed, only on quiet days.'),
+            value: _nudgeEvening,
+            onChanged: (v) async {
+              await s.settings.setNudgeEvening(v);
+              s.reminders?.sync();
+              _load();
+            },
+          ),
+        ],
         SizedBox(height: dl.x6),
         Text('On-device intelligence', style: theme.textTheme.titleSmall),
         const ListTile(

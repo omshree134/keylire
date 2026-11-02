@@ -81,6 +81,7 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     }
     if (state == AppLifecycleState.resumed) {
       widget.services.entitlements?.refresh();
+      widget.services.reminders?.sync();
     }
   }
 

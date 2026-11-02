@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 
 import 'core/config/ai_config.dart';
@@ -24,6 +28,7 @@ import 'services/metrics/dogfood_metrics.dart';
 import 'services/photos/photo_understanding_service.dart';
 import 'services/photos/platform_image_captioner.dart';
 import 'services/recurrence/recurrence_engine.dart';
+import 'services/reminders/reminder_service.dart';
 import 'services/settings/settings_service.dart';
 import 'services/time/time_vocab_service.dart';
 import 'ui/app.dart';
@@ -69,6 +74,7 @@ void main() {
   final cloudCapture = CloudCaptureService(db, capture, matcher, cloudGate);
   final photos =
       PhotoUnderstandingService(db, captioner: MlKitGenAiCaptioner());
+  final reminders = ReminderService(db, settings, capture, vocab);
 
   final services = Services(
     db: db,
@@ -84,6 +90,7 @@ void main() {
     cloudGate: cloudGate,
     cloudCapture: cloudCapture,
     entitlements: entitlements,
+    reminders: reminders,
   );
 
   runApp(KeylireApp(services: services));
@@ -135,6 +142,14 @@ void main() {
     }
     await matcher.warmUp();
     try {
+      await reminders.init(onForegroundResponse: (r) {
+        unawaited(_handleReminderTap(r, capture, reminders));
+      });
+      await reminders.syncNow();
+    } catch (e, st) {
+      debugPrint('Keylire: reminders init error: $e\n$st');
+    }
+    try {
       await dayClose.closeMissedDays();
     } catch (e, st) {
       debugPrint('Keylire: closeMissedDays error: $e\n$st');
@@ -166,4 +181,17 @@ Future<void> _reembed(AppDatabase db, EmbeddingService e) async {
     await (db.update(db.keyExamples)..where((k) => k.id.equals(ex.id)))
         .write(KeyExamplesCompanion(vector: Value(VectorCodec.encode(v))));
   }
+}
+
+Future<void> _handleReminderTap(NotificationResponse r, CaptureService capture,
+    ReminderService reminders) async {
+  if (r.payload == null) return;
+  final p = jsonDecode(r.payload!) as Map<String, dynamic>;
+  if (p['kind'] == 'plan' && p['eventId'] is int) {
+    final id = p['eventId'] as int;
+    if (r.actionId == 'done') await capture.completePlanned(id);
+    if (r.actionId == 'skip') await capture.skipPlanned(id);
+  }
+  WidgetActionBus.dispatch('keylire://reminder/${p['kind']}');
+  reminders.sync();
 }

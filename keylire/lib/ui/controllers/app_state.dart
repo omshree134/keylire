@@ -27,6 +27,7 @@ import '../../services/widget/widget_sync_service.dart';
 import '../../services/cloud/cloud_capture_service.dart';
 import '../../services/cloud/cloud_gate.dart';
 import '../../services/entitlements/entitlements_service.dart';
+import '../../services/reminders/reminder_service.dart';
 
 class WidgetActionBus {
   static final _c = StreamController<String>.broadcast();
@@ -49,6 +50,7 @@ class Services {
     this.cloudGate,
     this.cloudCapture,
     this.entitlements,
+    this.reminders,
   });
   final AppDatabase db;
   final SettingsService settings;
@@ -63,6 +65,7 @@ class Services {
   final CloudGate? cloudGate;
   final CloudCaptureService? cloudCapture;
   final EntitlementsService? entitlements;
+  final ReminderService? reminders;
 }
 
 class ServicesScope extends InheritedWidget {
@@ -321,6 +324,7 @@ class TodayController extends ChangeNotifier {
     if (isToday) {
       WidgetSyncService.syncWidgets(
           db: _s.db, todayEvents: rows, activeDay: _todayDate);
+      _s.reminders?.sync();
     }
   }
 
@@ -928,22 +932,26 @@ class ListsController extends ChangeNotifier {
   Future<void> add(String title, {String? section}) async {
     await _s.capture.addListItem(title, section: section);
     await load();
+    _s.reminders?.sync();
   }
 
   Future<void> tick(int id, {DateTime? at}) async {
     await _s.capture.completeListItem(id, at: at);
     await load();
+    _s.reminders?.sync();
   }
 
   Future<void> promote(int id, DateTime when) async {
     await _s.capture.promoteListItem(id, when);
     await load();
+    _s.reminders?.sync();
   }
 
   Future<void> remove(int id) async {
     await _s.db.updateListItem(
         id, ListItemsCompanion(deletedAt: Value(DateTime.now().toUtc())));
     await load();
+    _s.reminders?.sync();
   }
 }
 

@@ -102,6 +102,12 @@ class SettingsService {
       (await db.setting('notifications_enabled')) == 'true';
   Future<void> setNotificationsEnabled(bool v) =>
       db.putSetting('notifications_enabled', '$v');
+  Future<bool> nudgeMorning() async =>
+      (await db.setting('nudge_morning')) != 'false'; // default on
+  Future<void> setNudgeMorning(bool v) => db.putSetting('nudge_morning', '$v');
+  Future<bool> nudgeEvening() async =>
+      (await db.setting('nudge_evening')) != 'false';
+  Future<void> setNudgeEvening(bool v) => db.putSetting('nudge_evening', '$v');
 
   // ------------------------------------------------------------ day logic
 

@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../core/parse/entry_parser.dart';
 import '../../data/db/database.dart';
 import '../../services/capture/capture_service.dart';
 import '../../services/photos/photo_understanding_service.dart';
@@ -18,6 +19,7 @@ import '../../services/cloud/cloud_provider.dart';
 import '../controllers/app_state.dart';
 import '../theme/daylog_theme.dart';
 import 'key_picker_sheet.dart';
+import 'parse_preview.dart';
 import 'undo_chip.dart';
 
 /// Two rows. Chips: Bed and Up fixed at the left, then due-now, usual-now,
@@ -38,6 +40,8 @@ class _CaptureBarState extends State<CaptureBar> {
   ChipsController? _chips;
   DateTime? _openedAt;
   bool _busy = false;
+  ParsePreviewData? _preview;
+  DateTime? _overrideTime;
 
   final _speech = stt.SpeechToText();
   bool _listening = false;
@@ -103,14 +107,57 @@ class _CaptureBarState extends State<CaptureBar> {
   }
 
   void _onTextChanged() {
+    dismissUndoChip();
     _chipDebounce?.cancel();
-    _chipDebounce = Timer(const Duration(milliseconds: 220), () {
+    _chipDebounce = Timer(const Duration(milliseconds: 220), () async {
       if (!mounted) return;
-      _chips?.load(
-        targetDayDate: widget.targetDayDate,
-        query: _text.text,
-      );
+      await _chips?.load(targetDayDate: widget.targetDayDate, query: _text.text);
+      await _refreshPreview();
     });
+  }
+
+  Future<void> _refreshPreview() async {
+    final raw = _text.text.trim();
+    if (raw.isEmpty || _listening) {
+      if (_preview != null && mounted) setState(() => _preview = null);
+      return;
+    }
+    final s = ServicesScope.of(context);
+    final p = s.capture.parser.parse(raw);
+    final guess =
+        _chips?.chips.where((c) => c.reason == ChipReason.phrase).firstOrNull;
+    final now = DateTime.now();
+    final day = p.targetDay(now);
+    DateTime at;
+    if (p.exactLocal != null) {
+      at = DateTime(
+          day.year, day.month, day.day, p.exactLocal!.hour, p.exactLocal!.minute);
+    } else if (p.window != null) {
+      final m = await s.vocab.resolve(p.window!, keyId: guess?.keyId);
+      at = DateTime(day.year, day.month, day.day, m ~/ 60, m % 60);
+    } else if (p.dayOffset != 0 || p.weekday != null) {
+      at = DateTime(
+          day.year, day.month, day.day, p.tense == Tense.planned ? 9 : 12);
+    } else {
+      at = now;
+    }
+    if (!mounted) return;
+    setState(() => _preview = ParsePreviewData(
+          parsed: p,
+          resolvedLocal: at,
+          keyGuess: guess?.name,
+          overrideTime: _overrideTime,
+        ));
+  }
+
+  Future<void> _pickPreviewTime() async {
+    final base = _preview?.effective ?? DateTime.now();
+    final t = await showTimePicker(
+        context: context, initialTime: TimeOfDay.fromDateTime(base));
+    if (t == null) return;
+    setState(() => _overrideTime =
+        DateTime(base.year, base.month, base.day, t.hour, t.minute));
+    _refreshPreview();
   }
 
   int? get _elapsed => _openedAt == null
@@ -122,6 +169,8 @@ class _CaptureBarState extends State<CaptureBar> {
     _openedAt = null;
     _voiceNeedsReview = false;
     _speechBaseText = '';
+    _overrideTime = null;
+    _preview = null;
     _focus.unfocus();
   }
 
@@ -133,6 +182,7 @@ class _CaptureBarState extends State<CaptureBar> {
     final effectiveModality =
         modality == 'text' && _voiceNeedsReview ? 'voice' : modality;
     final elapsed = _elapsed;
+    final pinned = _overrideTime;
     _reset();
     final s = ServicesScope.of(context);
     setState(() => _busy = true);
@@ -148,6 +198,7 @@ class _CaptureBarState extends State<CaptureBar> {
             rawText: raw,
             modality: effectiveModality,
             captureMs: elapsed,
+            overrideTime: pinned,
             targetDayDate: widget.targetDayDate);
         final ids = await cc!.apply(split,
             sourceEventId: out.eventId, targetDayDate: widget.targetDayDate);
@@ -161,6 +212,7 @@ class _CaptureBarState extends State<CaptureBar> {
             rawText: raw,
             modality: effectiveModality,
             captureMs: elapsed,
+            overrideTime: pinned,
             targetDayDate: widget.targetDayDate);
         await widget.onLogged();
         if (mounted) await _route(out, raw);
@@ -198,6 +250,7 @@ class _CaptureBarState extends State<CaptureBar> {
     final raw = _text.text.trim();
     if (raw.isEmpty || _busy) return;
     final elapsed = _elapsed;
+    final pinned = _overrideTime;
     final s = ServicesScope.of(context);
     setState(() => _busy = true);
     try {
@@ -207,6 +260,7 @@ class _CaptureBarState extends State<CaptureBar> {
         modality: 'text',
         captureMs: elapsed,
         forcedKeyId: keyId,
+        overrideTime: pinned,
         targetDayDate: widget.targetDayDate,
       );
       try {
@@ -641,6 +695,15 @@ class _CaptureBarState extends State<CaptureBar> {
                   ],
                 ),
               ),
+              if (_preview != null)
+                ParsePreview(
+                  data: _preview!,
+                  onPickTime: _pickPreviewTime,
+                  onClearTime: () {
+                    setState(() => _overrideTime = null);
+                    _refreshPreview();
+                  },
+                ),
               Row(
                 children: [
                   _icon(Icons.camera_alt_outlined, 'Attach photo', soft,
