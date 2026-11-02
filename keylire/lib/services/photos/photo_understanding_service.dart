@@ -26,9 +26,13 @@ class PhotoUnderstandingService {
   final AppDatabase db;
   final PlatformCaptioner? captioner;
 
-  final _labeler =
+  ImageLabeler? _labelerInstance;
+  ImageLabeler get _labeler => _labelerInstance ??=
       ImageLabeler(options: ImageLabelerOptions(confidenceThreshold: 0.55));
-  final _ocr = TextRecognizer(script: TextRecognitionScript.latin);
+
+  TextRecognizer? _ocrInstance;
+  TextRecognizer get _ocr => _ocrInstance ??=
+      TextRecognizer(script: TextRecognitionScript.latin);
 
   Future<PhotoUnderstanding> understand(File image) async {
     final input = InputImage.fromFile(image);
@@ -110,8 +114,10 @@ class PhotoUnderstandingService {
   }
 
   void dispose() {
-    _labeler.close();
-    _ocr.close();
+    _labelerInstance?.close();
+    _ocrInstance?.close();
+    _labelerInstance = null;
+    _ocrInstance = null;
   }
 
   // ------------------------------------------------------------ rules

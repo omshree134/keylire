@@ -98,7 +98,12 @@ class ReminderService {
   Future<void> syncNow() async {
     if (!_ready) return;
     try {
-      await _plugin.cancelAll();
+      final pending = await _plugin.pendingNotificationRequests();
+      for (final req in pending) {
+        if (req.id == _idMorning || req.id == _idEvening || req.id >= _planBase) {
+          await _plugin.cancel(req.id);
+        }
+      }
       if (!await settings.notificationsEnabled()) return;
       await _schedulePlans();
       await _scheduleMorning();

@@ -38,14 +38,18 @@ Future<void> keylireWidgetBackground(Uri? uri) async {
   final db = AppDatabase();
   try {
     final settings = SettingsService(db);
+    final route = uri.host + uri.path;
+    final needsEmbedder = route == 'widget/text' || route == 'widget/photo';
     final embedder = SwitchableEmbeddingService();
-    await embedder.upgradeTo(OnnxEmbeddingService(), AiConfig.onnxEmbedderId);
+    if (needsEmbedder) {
+      await embedder.upgradeTo(OnnxEmbeddingService(), AiConfig.onnxEmbedderId);
+    }
     final matcher = KeyMatcher(db, embedder, settings);
     final vocab = TimeVocabService(db);
     final capture = CaptureService(db, matcher, settings, vocab);
     final q = uri.queryParameters;
 
-    switch (uri.host + uri.path) {
+    switch (route) {
       case 'widget/bed':
         await capture.bed(captureMs: 400);
       case 'widget/up':

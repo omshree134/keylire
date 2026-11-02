@@ -121,7 +121,9 @@ class KeyMatcher {
       vector: VectorCodec.encode(inputVector),
       source: corrected ? 'corrected' : 'confirmed',
     ));
-    invalidate();
+    if (_cache != null) {
+      _cache!.add(_Anchor(keyId, inputVector));
+    }
   }
 
   /// Create a brand-new key seeded with this input as its first anchor.
@@ -135,7 +137,10 @@ class KeyMatcher {
       vector: VectorCodec.encode(inputVector),
       source: 'seed',
     ));
-    invalidate();
+    _keyNames[keyId] = name;
+    if (_cache != null) {
+      _cache!.add(_Anchor(keyId, inputVector));
+    }
     return keyId;
   }
 }

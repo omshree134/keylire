@@ -25,6 +25,13 @@ class RevenueCatEntitlements implements EntitlementsService {
   final http.Client? _client;
 
   bool _configured = false;
+  Tier? _cachedTier;
+  DateTime? _tierCachedAt;
+
+  void invalidateCache() {
+    _cachedTier = null;
+    _tierCachedAt = null;
+  }
 
   /// Call once at startup. Anonymous app user ids are fine; RevenueCat
   /// persists them on-device and restores purchases by store account.
@@ -40,11 +47,21 @@ class RevenueCatEntitlements implements EntitlementsService {
   @override
   Future<Tier> tier() async {
     if (!_configured) return Tier.free;
+    final now = DateTime.now();
+    if (_cachedTier != null &&
+        _tierCachedAt != null &&
+        now.difference(_tierCachedAt!) < const Duration(seconds: 60)) {
+      return _cachedTier!;
+    }
     try {
       final info = await Purchases.getCustomerInfo();
-      return info.entitlements.active.containsKey(entitlementId) ? Tier.premium : Tier.free;
+      final isPrem = info.entitlements.active.containsKey(entitlementId);
+      final t = isPrem ? Tier.premium : Tier.free;
+      _cachedTier = t;
+      _tierCachedAt = now;
+      return t;
     } catch (_) {
-      return Tier.free;
+      return _cachedTier ?? Tier.free;
     }
   }
 
@@ -111,6 +128,8 @@ class RevenueCatEntitlements implements EntitlementsService {
     try {
       final info = await Purchases.purchasePackage(pkg);
       final premium = info.entitlements.active.containsKey(entitlementId);
+      _cachedTier = premium ? Tier.premium : Tier.free;
+      _tierCachedAt = DateTime.now();
       if (premium) await refresh();
       return premium;
     } on PlatformException catch (e) {
@@ -125,6 +144,8 @@ class RevenueCatEntitlements implements EntitlementsService {
     try {
       final info = await Purchases.restorePurchases();
       final premium = info.entitlements.active.containsKey(entitlementId);
+      _cachedTier = premium ? Tier.premium : Tier.free;
+      _tierCachedAt = DateTime.now();
       if (premium) await refresh();
       return premium;
     } catch (_) {

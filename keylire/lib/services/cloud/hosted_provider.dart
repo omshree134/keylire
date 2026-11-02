@@ -33,9 +33,7 @@ class HostedProvider implements CloudProvider {
 
   @override
   Future<bool> get isConfigured async =>
-      baseUrl.isNotEmpty &&
-      await entitlements.tier() == Tier.premium &&
-      (await entitlements.hostedToken()) != null;
+      baseUrl.isNotEmpty && await entitlements.tier() == Tier.premium;
 
   @override
   Future<Map<String, dynamic>> completeJson({
